@@ -1,0 +1,73 @@
+#!/usr/bin/php
+<?php
+    require_once('ezfw.php');
+
+    if ($argc < 3) {
+        print "\nUSAGE: {$argv[0]} ACTION flag_name [data]\n\n";
+        print "    FLAG_NAME:  filename of the flag to operate on (filename *only*, NOT path)\n";
+        print "       ACTION:  raise/lower/read/append/stat/toggle\n\n";
+        print "  if ACTION is 'raise' or 'append', than the second parameter: 'data'\n";
+        print "  is written into the flag file, in the case of raise, the previous data\n";
+        print "  is overwritten, for append, it is appended (well garsh!).  If data is '-',\n";
+        print "  then the data is read in from stdin.\n\n";
+        print "  RETURN CODES:  All return codes are 0 on success.  Error codes are as follows:\n";
+        print "      read: returns 1 if not raised\n";
+        print "      stat: returns 1 if not raised, 0 if raised\n";
+        print "     lower: returns 1 if not raised\n";
+        print "     raise: always returns 0\n";
+        print "    append: always returns 0\n";
+        print "    toggle: always returns 0\n";
+        print "  if ACTION is 'stat', in addition to the return codes 0 and 1, the flag's state\n";
+        print "  will also be printed to the stdout as 'RAISED' or 'LOWERED' respectively\n\n";
+
+        exit(1);
+    }
+
+    $action = strtolower($argv[1]);
+    $flag = $argv[2];
+    $data = NULL;
+
+    if ($argc > 3) {
+        $data = $argv[3];
+        if ($data == '-')
+            $data = stream_get_contents(STDIN);
+    }
+
+    if (!$data) $data = false;
+
+    if ($action == 'toggle')
+        $action = flag_raised($flag)?'lower':'raise';
+
+    switch ($action) {
+        case ('stat'):
+            if (flag_raised($flag)) {
+                print "RAISED";
+                exit;
+            }
+            print "LOWERED";
+            exit(1);
+        case ('lower'):
+            if (!flag_raised($flag)) {
+                print "Flag '$flag' not raised\n";
+                exit(1);
+            }
+            print "Lowering flag '$flag'\n";
+            lower_flag($flag);
+            exit;
+        case ('read'):
+            if (!flag_raised($flag)) exit(1);
+            print read_flag($flag);
+            exit;
+        case ('raise'):
+            print "Raising flag '$flag'\n";
+            raise_flag($flag, $data);
+            exit;
+        case ('append'):
+            print "Appending flag '$flag'\n";
+            raise_flag($flag, $data, true);
+            exit;
+        default:
+            print "ERROR: Unknown action '$action'\n";
+            exit(1);
+    }
+

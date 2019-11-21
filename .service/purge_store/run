@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "Starting Purge Store"
+date >> /usr/local/careview/logs/stores/init/purge.log 2>&1
+exec /usr/local/careview/bin/store_manager.php --force --logfile stores/purge.log --quiet --manage purge >> /usr/local/careview/logs/stores/init/purge.log 2>&1

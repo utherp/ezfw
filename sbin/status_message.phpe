@@ -1,0 +1,59 @@
+#!/usr/bin/php
+<?php
+    require_once('ezfw.php');
+    define('REBOOT_FILE', '/var/log/reboots.log');
+    define('LOG_FILE', 'status_response.log');
+
+    function do_post_request($url, $data) {
+        $params = array(
+                    'http' => array(
+                        'method' => 'POST',
+                        'content' => http_build_query($data)
+                    )
+                );
+        $ctx = stream_context_create($params);
+        $fp = @fopen($url, 'r', false, $ctx);
+        
+        if (!$fp) {
+            throw new Exception("Problem with $url, $php_errormsg");
+        }
+                
+        $response = @stream_get_contents($fp);
+        if ($response === false) {
+            throw new Exception("Problem reading data from $url, $php_errormsg");
+        }
+        return $response;
+    } 
+
+    $url = 'http://' . SERVER_HOST .'.'.DOMAIN_NAME. SERVER_WEB_ROOT . '/service/status_receiver.php';
+    $rev = `dpkg -l | grep ezfw | awk '{print $1 " " $2 " " $3}' | column -t`;
+    $disk_usage = `df -h`;
+    $uptime = trim(`uptime`);
+    if (is_file(REBOOT_FILE)) {
+        $reboot_data = file(REBOOT_FILE);
+        $reboots = count($reboot_data);
+        unlink(REBOOT_FILE);
+    } else {
+        $reboot_data = false;
+        $reboots = 0;
+    }
+
+    $data = array(
+                'disk_usage' => $disk_usage,
+                'uptime' => $uptime,
+                'reboots' => $reboots,
+                'reboot_data' => serialize($reboot_data),
+                'mac' => get_mac(),
+                'modem_mac' => get_cmmac(),
+                'revision' => $rev
+            );
+   
+    if ( has_wdt() ) {
+        $data['wdt_mac'] = get_wdt_mac();
+    }
+
+    if ( has_tvc() ) {
+        $data['tvc_mac'] = get_tvc_mac();
+    }
+ 
+    logger(rtrim(do_post_request($url, $data)), true);

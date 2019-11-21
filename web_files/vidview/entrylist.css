@@ -1,0 +1,97 @@
+img.downloadButton {
+    width: 12px;
+    height: 12px;
+}
+img.downloadButton.enabled {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+img.eventIcon {
+    width: 20px;
+    height: 20px;
+}
+div.entryList {
+    width: 100%;
+    height: 100%;
+}
+
+div.entryList table.entryListHead {
+    width: 100%;
+    font-weight: bolder;
+    font-color: black;
+    height: 30px;
+    border-bottom: thin black solid;
+    border-top: double black;
+    background-color: #D1D7DC;
+}
+
+div.entryList div.entryListBody {
+    overflow: scroll;
+    overflow-x: hidden;
+}
+div.entryList table.entryListTable {
+    font-weight: normal;
+    font-color: blue;
+    width: 100%;
+    text-align: center;
+}
+div.entryList table.entryListTable tr {
+    height: auto;
+}
+div.entryList table.entryListTable tr:hover {
+    background-color: #AFE2B2;
+}
+
+div.entryList table.entryListTable tr.focusedEntry {
+    border: thin black solid;
+    background-color : #4CE081;
+    font-weight: bold;
+}
+
+div.entryList table.entryListTable tr.selectedEntry {
+    border: thin black solid;
+}
+
+div.entryList table.entryListTable tr.even_row.focusedEntry.selectedEntry {
+    background-color : #5DF192;
+}
+
+div.entryList table.entryListTable tr.odd_row.focusedEntry.selectedEntry {
+    background-color : #4CE081;
+}
+
+div.entryList table.entryListTable tr.even_row.selectedEntry {
+    background-color : #88ccdd;
+}
+
+div.entryList table.entryListTable tr.odd_row.selectedEntry {
+    background-color : #aaeeff;
+}
+
+div.entryList table th {
+    margin: 0 0 0 0;
+    padding: 0 0 0 0;
+    width: 50px;
+}
+
+div.entryList table td {
+    margin: 0 0 0 0;
+    padding: 0 0 0 0;
+    width: 50px;
+}
+
+div.entryList table .download {
+    width: 16px;
+    height: 16px;
+}
+
+div.entryList table.entryListTable tr td {
+    border-right: thin solid black;
+}
+
+div.entryList table.entryListTable tr td.events {
+    border-right: none;
+}
+

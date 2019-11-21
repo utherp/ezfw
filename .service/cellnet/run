@@ -1,0 +1,12 @@
+#!/bin/bash
+echo "Starting cellnet"
+date >> /usr/local/careview/logs/init/cellnet.log 2>&1
+
+. /etc/hospital.conf;
+
+# exports regardless of case (param.c is told to ignore case on all parameters)
+export `set | grep -i '^cv_cellnet_' | sed 's,=.*$,,'`
+# export ${!cv_cellnet_*}
+
+exec /usr/local/careview/bin/cellnet --logfile=/usr/local/careview/logs/cellnet.log -d -d --bmp >> /usr/local/careview/logs/init/cellnet.log 2>&1
+

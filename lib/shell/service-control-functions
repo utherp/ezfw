@@ -1,0 +1,244 @@
+#!/bin/bash
+
+[ "x$CV_SHELL_COMMON" = "x1" ] || . /usr/local/ezfw/lib/shell/ezfw-shell-common;
+
+# Prints path to the link for services enabled, 
+# or if no service is specified, prints the path to the service links (/etc/service)
+# Syntax: svc_link_path [SERVICE_NAME]
+function svc_link_path () {
+    local SVC=$1
+    local SVC_PATH="$cv_svcpath"
+    [ -z "$SVC_PATH" ] && SVC_PATH="/etc/service"
+    printf -- "$SVC_PATH/$SVC";
+    return 0;
+}
+
+# Prints path to a service's directory,
+# or if no service specified, returns the path to the service directories (/usr/local/ezfw/service)
+# Syntax:  svc_path [SERVICE_NAME]
+function svc_path () {
+    local SVC=$1
+    local ROOT_SPATH="$( cv_path )/service"
+    printf -- "$ROOT_SPATH/$SVC";
+    return 0;
+}
+
+# Prints the command which accomplishes the specified action
+# if no action is specified, or the action is not found, a
+# 1 is returned and an "echo" command is printed which
+# simply states that no such service action exists
+# Syntax:  svc_action [ACTION_NAME]
+function svc_action () {
+    local ACT=$( /usr/bin/tr '[:upper:]' '[:lower:]' <<<"$1" )
+    local SERVICE_ACTIONS=( 
+        'start' 
+        'stop'
+        'enable' 
+        'disable'
+        'add'
+        'remove'
+        'hup'
+        'term'
+        'kill'
+        'pause'
+    );
+
+    local SERVICE_CMDS=(
+        'svc -u "$( svc_path $SVC )"'
+        'svc -d "$( svc_path $SVC )"'
+        'rm -f "$( svc_path $SVC )/down"'
+        'touch "$( svc_path $SVC )/down"'
+        'svc_add "$SVC"'
+        'svc_remove "$SVC"'
+        'svc -h "$SVC"'
+        'svc -t "$SVC"'
+        'svc -k "$SVC"'
+        'sleep 1'
+    );
+
+    local I=0;
+    while [ ! -z "${SERVICE_ACTIONS[$I]}" ]; do
+        if [ "${SERVICE_ACTIONS[$I]}" = "$ACT" ]; then
+            echo "${SERVICE_CMDS[$I]}"
+            return 0;
+        fi
+        let I++;
+    done;
+
+    echo "echo 'No such service action \"$ACT\"'"
+    echo "No such service action '$ACT'" >&2
+    return 1;
+}
+
+# Links a service from /etc/service/ to /usr/local/ezfw/service
+# Syntax:  svc_add SERVICE_NAME
+function svc_add () {
+    local SVC=$1;
+    local LPATH=$( svc_link_path "$SVC" )
+    local TPATH=$( svc_path "$SVC" )
+
+    if [ ! -d "$TPATH" ]; then
+        echo "Error: Could not add service '$SVC': Service does not exist at '$TPATH'"
+        return 1;
+    fi
+
+    if [ -e "$LPATH" ]; then
+        if [ -h "$LPATH" ]; then
+            local LNK=$( readlink -nm "$LPATH" )
+            if [ "$LNK" = "$TPATH" ]; then
+                echo "Note: Service '$SVC' already added"
+                return 0;
+            fi
+            echo "Note: Link '$LPATH' for service '$SVC' pointing to incorrect target ('$LNK'), fixing..."
+            rm -f "$LPATH";
+        else 
+            echo "Note: Link path '$LPATH' for service '$SVC' is not a link, moving to /tmp/bad_services/..."
+            [ -d /tmp/bad_services ] || mkdir -p /tmp/bad_services;
+            local RETLINE=$( mv "$LPATH" /tmp/bad_services/ 2>&1 );
+            local RV=$?
+            if [ $RV -ne 0 ]; then
+                echo "... Error: Unable to move '$LPATH' to /tmp/bad_services: [$RV]  $RETLINE"
+                return $RV;
+            fi
+        fi
+    fi
+
+    local RETLINE=$( ln -s "$TPATH" "$LPATH" 2>&1 )
+    local RET=$?
+    if [ $RET -ne 0 ]; then
+        echo "Error: Unable to add service '$SVC', failed linking from "$LPATH" to "$TPATH": [$RV]  $RETLINE"
+        return $RV;
+    fi
+
+    echo "Added Service '$SVC'"
+
+    return 0;
+} >&2
+
+# Removes a link from /etc/service/ pointing to /usr/local/ezfw/service/
+# Syntax:  svc_remove SERVICE_NAME
+function svc_remove () {
+    local SVC=$1;
+    local LPATH=$( svc_link_path "$SVC" )
+    local TPATH=$( svc_path "$SVC" )
+
+    if [ -h "$LPATH" ]; then
+        echo "Note: Could not remove service '$SVC', service not added"
+        return 0;
+    fi
+
+    local RETLINE=$( rm -f "$LPATH" 2>&1 )
+    local RET=$?
+    if [ $RET -ne 0 ]; then
+        echo "Error: Could not remove service '$SVC', failed unlinking '$LPATH':  [$RV]  $RETLINE"
+        return $RV;
+    fi
+
+    echo "Removed Service '$SVC'"
+
+    return 0;
+} >&2
+
+# Executes the command mapped from svc_action on the given services
+# Syntax: act_on_services ACTION_NAME SERVICE_NAME [SERVICE_NAME ...]
+# See svc_action above for a list of ACTION_NAME's
+function act_on_services () {
+    local ACT=$1;
+    local CMD=$( svc_action "$ACT" )
+
+    if [ $? -ne 0 ]; then
+        echo "Error: Unknown service action '$ACT'"
+        return -1;
+    fi;
+    shift;
+
+    local SVCS=( "$@" )
+    local I=0
+    local RET=0
+    while [ ! -z "${SVCS[$I]}" ]; do
+        local SVC="${SVCS[$I]}";
+        let I++;
+        local RETLINE=$( eval "$CMD" 2>&1 )
+        local RV=$?
+        # When svc fails, it still returns a zero exit code, so check for any output too
+        # Note: You'll always get output if you debug with set -x
+        if [ \( $RV -ne 0 \) -o \( "x$RETLINE" != "x" \) ]; then
+            echo "Error: Could not perform '$ACT' on service '$SVC': [$RV] $RETLINE"
+            let RET++;
+        fi;
+    done;
+    return $RET;
+} >&2
+
+# Modifies a service's running or enabled state 
+# Syntax: modify_service MOD_NAME SERVICE_NAME [SERVICE_NAME...]
+# ( see the case statement within for list of MOD_NAME, mappings of modifications )
+function modify_service () {
+    local ACTION=$( /usr/bin/tr '[:upper:]' '[:lower:]' <<<"$1" );
+    local ACTSTACK=( )
+    shift;
+    local SERVICES=( $* );
+    local I=0;
+
+    local RET=0
+
+    while [ ! -z "${SERVICES[$I]}" ]; do
+        local SVC="${SERVICES[$I]}";
+        local TPATH="$ROOT_SPATH/$SVC";
+        local LPATH="$SVC_PATH/$SVC"
+        local CMDS=( )
+        let I++;
+
+        case "$ACTION" in 
+            # Disable, Stop and Remove a service
+            rem|remove|del|delete)    CMDS=( "disable" "stop" "remove" )    ;;
+            # Add a service
+            add)                    CMDS=( "add" )                        ;;
+            # Disable and stop a service
+            disable)                CMDS=( "disable" "stop" )            ;;
+            # Enable and start a service
+            enable)                    CMDS=( "enable"    "start" )            ;;
+            # Enable a service, but don't start it (whether it starts depends on if the down file exists in the service directory)
+            link)                    CMDS=( "enable" )                    ;;
+            # Starts a service
+            start|up|-u)            CMDS=( "start" )                    ;;
+            # Stops a service
+            stop|down|-d)            CMDS=( "stop" )                        ;;
+            # Sends service the HUP signal (1)
+            hup|-h)                    CMDS=( "hup" )                        ;;
+            # sends service the TERM signal (15)
+            term|-t)                CMDS=( "term" )                        ;;
+            # sends service the KILL signal (9)
+            kill|-k)                CMDS=( "kill" )                        ;;
+            # Stops a service, waits 1 second, then starts it again
+            reup|rehup|restart|-r)    CMDS=( "stop" "pause" "start" )        ;;
+            *)
+                echo "Warning: Unknown action '$ACTION' attempted when modifying service '$SVC'"
+            ;;
+        esac;
+
+        local CI=0
+
+        while [ ! -z "${CMDS[$CI]}" ]; do
+            local ACT="${CMDS[$CI]}"
+            let CI++;
+            if ! act_on_services "$ACT" "$SVC"; then
+                echo "Error: Failed to '$ACT' Service '$SVC' in an attempt to '$ACTION'"
+                let RET++;
+                break;
+            fi
+            echo "Service '$SVC': $ACT"
+        done;
+    done;
+    return $RET;
+} >&2
+
+# These functions are just shortcuts to modify_service above
+function disable_service () { modify_service 'disable' "$@"; }
+function enable_service  () { modify_service 'enable' "$@";  }
+function start_service   () { modify_service 'start' "$@";   }
+function stop_service    () { modify_service 'stop' "$@";    }
+function restart_service () { modify_service 'restart' "$@"; }
+function remove_service  () { modify_service 'remove' "$@";  }
+function add_service     () { modify_service 'add' "$@";     }
+

@@ -1,0 +1,19 @@
+export CV_BUILD_VERSION  = 0.7-mini
+
+# version sources
+SRCS	=	logger.c params.c cell_init.c bmp.c zone.c posix_shmseg.c main.c signaler.c feedscan.c 
+
+# production apps
+PROD	+=	cellnet
+
+CFLAGS	= -g
+DEBUG_FLAGS += -D_DEBUG_VERBOSE_
+DEPEND	+=	-lm -lrt
+
+cellnet_SRCS = cellnet.c 
+testbed_SRCS =
+
+ifdef CONFMAKE 
+  include $(CONFMAKE)
+endif
+

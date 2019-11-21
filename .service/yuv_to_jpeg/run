@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "Starting yuv_to_jpeg"
+date >> /usr/local/careview/logs/init/yuv_to_jpeg.log 2>&1
+exec /usr/local/careview/bin/yuv_to_jpeg.sh >> /usr/local/careview/logs/init/yuv_to_jpeg.log 2>&1

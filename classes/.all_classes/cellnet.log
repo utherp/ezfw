@@ -1,0 +1,102 @@
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0x483d000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0x483d000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7438000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72e7000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73a6000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73a9000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72e7000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7424000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb734e000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7494000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72fa000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7495000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73b7000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7402000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72d0000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72b2000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7311000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7338000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7423000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7380000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73fd000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7347000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7312000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72bf000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73f0000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72cb000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7343000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73f2000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7410000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73ca000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73d6000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73ad000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb74a9000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb740c000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73b5000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72bf000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7366000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb736f000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7435000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7452000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73a1000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb73b2000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb742b000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7326000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb730e000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb72f2000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb737d000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7309000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7470000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7406000,  size: 126744
+WARNING: SHM	 (posix_shmseg.c:40):	Modified input filename for compatibility from '/dev/video32' to '/dev_video32'
+WARNING: SHM	 (posix_shmseg.c:88):	Mapped posix shared memory file '/dev_video32' at 0x0xb7465000,  size: 126744

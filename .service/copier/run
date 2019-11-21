@@ -1,0 +1,9 @@
+#!/bin/sh
+exec 2>&1
+exec >>/usr/local/careview/logs/init/copier.log
+
+echo "Starting copier"
+date
+/usr/local/careview/sbin/validate_videos.php
+exec /usr/local/careview/bin/copier.php -q
+

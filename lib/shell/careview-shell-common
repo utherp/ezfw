@@ -1,0 +1,169 @@
+#!/bin/bash
+
+# these few lines allow reloading in the version has changed
+CVVER_SHELL_COMMON=2
+[ -z "$CV_SHELL_COMMON" ] && CV_SHELL_COMMON=0;
+
+if (( "$CV_SHELL_COMMON" < "$CVVER_SHELL_COMMON" )); then 
+    # set to this version
+    CV_SHELL_COMMON=$CVVER_SHELL_COMMON
+
+    # CareView aliases
+    alias cvlog='cv logs'
+    alias cvver='dpkg -l | grep ezfw'
+
+    function load_hospital_conf () {
+        # use switch '-f' to force a reloading the conf file...
+        local fetchit=0
+        if [ "x$1" = "x-f" ]; then
+           CV_HOSPITAL_CONF_LOADED=
+           # use two -f switches to force reloading from the server
+           [ "x$2" = "x-f" ] && fetchit=1;
+        fi
+
+        # if conf is already loaded, and -f was not used, return
+        [ "x$CV_HOSPITAL_CONF_LOADED" = "x1" ] && return 0;
+
+        # if cache does not exist, fetch it
+        [ -f /etc/hospital.conf ] || fetchit=1;
+
+        # fetching hospital.conf from the server if not cached or -f -f was passed...
+        if [ "$fetchit" != "0" ] && ! fetch_hospital_conf; then
+           # failed to fetch it... we'll load it anyway
+           printf "WARNING: Failed to update hospital.conf from server, using previously cached version...\n"
+        fi
+
+        if [ ! -f /etc/hospital.conf ]; then
+            # hospital.conf does not exist and failed to fetch it
+            printf "ERROR: Could not load /etc/hospital.conf, no local cached version exists...\n"
+            return 1;
+        fi
+
+        # source the conf file...
+        . /etc/hospital.conf
+
+        # mark that it was loaded
+        CV_HOSPITAL_CONF_LOADED=1;
+
+        return 0;
+    } 1>&2  # <-- NOTE: all output of this function goes to stderr
+
+    # renewed update_hospital_conf file... 
+    function fetch_hospital_conf () {
+        local target='/etc/hospital.conf'
+        local url='http://server.cv-internal.com/setup/hospital.conf'
+        local lastconf="/tmp/last-hospital.conf-updated_`date "+%Y-%m-%d_%H:%M:%S"`"
+        local tmpfile='/tmp/hospital.conf.filepart'
+        local err='';
+    
+        while true; do
+          # download conf file
+    
+          # ... I have to do it this way, the node's version of wget doesn't seem to honor the -nv option to wget,
+          # treating it just like -q (all output is supressed, even error messages).
+          local tmpout="/tmp/wget_output-$$.tmp"
+          wget "$url" -O "$tmpfile" > "$tmpout" 2>&1 
+          local ret=$?
+          local OUT=`cat "$tmpout"`;
+          rm -f "$tmpout";
+          if [ "$ret" != "0" ]; then
+            err="Failed to download file from server\n### wget output ###\n$OUT\n### end of wget output ###";
+            break;
+          fi
+    
+          # ensure file is non-zero length
+          if ! [ -s "$tmpfile" ]; then
+            err='Downloaded file is zero-length (...it should have *something* in it)';
+            break;
+          fi
+    
+          # ensure it has at least one equals sign
+          if ! grep -q '=' "$tmpfile"; then
+            err='Downloaded file contains no equals signs (pretty important for a file which is supposed to contain variables)'
+            break;
+          fi
+    
+          if cmp -s "$tmpfile" "$target"; then
+            # file has not changed.
+            rm -f "$tmpfile";
+            return 0;
+          fi
+    
+          # file has changed, notify on the stderr
+          printf "NOTE: hospital.conf file has changed!\n"
+    
+          # file downloaded successfully and it passes muster.
+          cp -f "$target" "$lastconf";
+          mv -f "$tmpfile" "$target";
+        
+          return 0;
+        done;
+    
+        [ -z "$err" ] && err="An unknown error has occurred";
+    
+        printf "\033[31mERROR: \033[01;37mFailed to update '$target'.  reason: '$err'\033[00m\n";
+    
+        return 1;
+
+    } 1>&2  # <-- NOTE: all output of this function goes to stderr
+
+
+    function load_ini () {
+        local inidir="$( cv_path )/etc/ini";
+        local fn="$inidir/$1"
+        if ! [ -e "$fn" ]; then 
+            fn="$fn.ini";
+            [ -e "$fn" ] || return 1;
+        fi
+        # must remove spacing around = sign.
+        eval $( sed 's,[ \t]*=[ \t]*,=,' "$fn" );
+        return 0;
+    }
+
+    function cv_path () {
+        load_hospital_conf;
+        local ROOT_PATH="$cv_basepath"
+        [ -z "$ROOT_PATH" ] && ROOT_PATH="/usr/local/ezfw"
+        echo "$ROOT_PATH"
+        return 0;
+    }
+
+    function cv (){
+        cd $( cv_path )/$1
+    }
+
+    function cv_load_lib () {
+        local LIBNAME=$1;
+        local LIBTAGNAME="CVLIB_$( sed 's,[^a-zA-Z0-9],,g' <<<"$LIBNAME" )"
+        local LIBTAGVAL=$( echo "$LIBTAGNAME" )
+
+        # is it already loaded?
+
+        [ "x${LIBTAGVAL}" = "x1" ] && return 0;
+
+        local LIBDIR="$( cv_path )/lib/shell"
+
+        if [ ! -d "$LIBDIR" ]; then
+            echo "Error: cv shell libs path not found at '$LIBDIR'" >&2
+            return 1;
+        fi
+
+        if [ -e "$LIBDIR/$LIBNAME" ]; then
+            . "$LIBDIR/$LIBNAME";
+            eval "${LIBTAGNAME}=1";
+            return 0;
+        fi
+        
+        if [ -e "$LIBDIR/${LIBNAME}.sh" ]; then
+            . "$LIBDIR/${LIBNAME}.sh";
+            eval "${LIBTAGNAME}=1";
+            return 0;
+        fi
+
+        echo "Error: CV shell lib '$LIBNAME' not found in '$LIBDIR/'" >&2
+
+        return 2;
+    }
+
+fi;
+

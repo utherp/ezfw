@@ -1,0 +1,26 @@
+<html>
+    <head>
+        <style>
+            div {
+                border: thin solid black;
+                width=80%;
+                height=90%;
+            }
+            div img {
+                width: 95%;
+                height: 95%;
+            }
+        </style>
+        <script>
+            function start () {
+                document.getElementById('frame').src = 'bmp.php?t=' + (new Date()).getTime();
+            }
+        </script>
+    </head>
+    <body onLoad='start();' style='background-color: black;'>
+        <div>
+            <img id='frame' onLoad='this.src="bmp.php?t=" + (new Date()).getTime();'
+            />
+        </div>
+    </body>
+</html>

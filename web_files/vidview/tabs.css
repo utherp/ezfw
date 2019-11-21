@@ -1,0 +1,46 @@
+div.tab_frame {
+    height: 99%;
+    margin-left: auto;
+    margin-right: auto;
+    border: medium double black;
+}
+
+div.tab_frame div.tab_header {
+    width: 10%;
+    height: 100%;
+    left: 0px;
+    display: block;
+    float: left;
+}
+
+div.tab_header div.tab_label {
+    height: 50px;
+    width: 100%;
+    font-color: #BBBBBB;
+    text-align: center;
+    padding-top: 10px;
+    border: thin dotted grey;
+    border-bottom: thin solid black;
+}
+
+div.tab_header div.tab_label.selected {
+    border: thin solid blue;
+    font-weight: bolder;
+    font-color: #555555;
+    border-right: none;
+}
+
+div.tab_frame div.tab_body {
+    float: left;
+    width: 88%;
+    height: 98%;
+    margin: 5px;
+    display: none;
+}
+
+div.tab_frame div.tab_body.selected {
+    display: block;
+}
+
+
+

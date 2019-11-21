@@ -1,0 +1,32 @@
+<!--
+    NOTE:  make a symlink in the same directory called 'edges.bmp'
+           and point it to '/dev/shm/tmp_deltas.bmp'
+-->
+<html>
+    <head>
+        <script>
+            var edges;
+            var orig_src;
+            var refreshTimeout;
+
+            function refresh () {
+                edges.src = orig_src + '?&t=' + (new Date()).getTime();
+            }
+            function init () {
+                edges = document.getElementById('edges')
+                orig_src = edges.src;
+                edges.onload = function () {
+                    clearTimeout(refreshTimeout);
+                    refreshTimeout = setTimeout(refresh, 1000);
+                    return true;
+                }
+                refreshTimeout = setTimeout(refresh, 1000);
+            }
+        </script>
+    </head>
+    <body onLoad='init();' style='background-color: black'>
+        <div style='width: 352; height: 288; border: thin solid white;'>
+            <img style='width: 100%; height: 100%' id=edges src=edges.bmp />
+        </div>
+    </body>
+</html>

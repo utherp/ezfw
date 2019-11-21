@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ "x$CV_LOGGER_MANAGER" != "x1" ]; then 
+    CV_LOGGER_MANAGER=1
+
+    # syntax: log_direct filename
+    #
+    #   This function copies the stdout and stderr to a logfile
+    #   ...it is still prints the output as well.
+    #   when using this, its a good idea to set a trap on exit
+    #   to restore them, and remove the pipe.  this can be
+    #   done like this:
+    #       trap log_restore EXIT
+    #
+    function log_direct () {
+        local filename=$1
+        # for tee to send log output
+        mknod /tmp/log-$$.pipe p
+        { tee -a $filename </tmp/log-$$.pipe 2>/dev/null & }
+        # copy stdout and stderr
+        exec 3>&1
+        exec 4>&2
+        # redirect stderr and stdout to log pipe...
+        exec &>/tmp/log-$$.pipe 
+    
+        return 0;
+    }
+    
+    # syntax:  log_restore
+    #   this function simply restores the output descriptors 
+    #   and deletes the pipe.  closing the descriptors terminates
+    #   the tee process started in log_direct.
+    function log_restore () {
+        kill %1
+        exec 1>&3
+        exec 2>&4
+        rm /tmp/log-$$.pipe;
+        return 0;
+    }
+
+
+fi;
+

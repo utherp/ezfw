@@ -1,0 +1,262 @@
+#!/bin/bash
+
+[ "x$CV_SHELL_COMMON" = "x1" ] || . /usr/local/ezfw/lib/shell/ezfw-shell-common;
+
+export CV_DBLOG=/usr/local/ezfw/logs/install/db.log
+
+function cv_requestReboot(){
+    echo "`date`: Flagging that FAI needs to reboot this node" >> $CV_DBLOG 2>&1
+    touch /usr/local/ezfw/flags/fai_need_reboot.flag
+}
+
+# Used during package installation to create config files out of templates, by 
+# subtituting variables from /etc/hospital.conf
+function cv_substitute(){
+    if [ -f /etc/hospital.conf ]
+    then
+        source /etc/hospital.conf
+        for i in `grep -v "^#" /etc/hospital.conf | awk 'BEGIN{FS="="} {print $1}'`
+        do
+            VAL=`grep -v "^#" /etc/hospital.conf | grep -e "$i\W*=" | sed 's/^[^=]*="\(.*\)"/\1/'`
+            sed -i "s#\${$i}#$VAL#g" $1
+        done
+    fi
+}
+
+function cv_getPrivateDbInterface(){
+    local ON_NODE=0
+    [ -d /usr/local/system_tests ] && ON_NODE=1
+    
+    if [ "$ON_NODE" = "1" ]; then
+        ifconfig eth0 | grep "inet addr" | awk '{print $2}' | awk 'BEGIN{FS=":"} {print $2}'
+    else
+        ifconfig private | grep "inet addr" | awk '{print $2}' | awk 'BEGIN{FS=":"} {print $2}'
+    fi  
+}
+
+function cv_dbExists(){
+    local dbName=$1
+    local dbUser=$2
+    local dbPass=$3
+
+    #Get the interface hooked up to the private interface
+    local PRIVATE_ADDR=`cv_getPrivateDbInterface`
+
+    echo "`date`: Attempting to verify database existence: $dbName" >> $CV_DBLOG 2>&1
+
+    if [ -f /var/run/mysqld/mysqld.pid ]; then
+        if [ -S /var/run/mysqld/mysqld.sock ]; then
+            mysql -u $dbUser --protocol=SOCKET -e "exit" $dbName >/dev/null 2>&1 && return 0 || echo "" > /dev/null;
+            mysql -u $dbUser --password="$dbPass" --protocol=SOCKET -e "exit" $dbName >/dev/null 2>&1 && return 0 || echo "" > /dev/null;
+        fi
+        mysql -u $dbUser --protocol=TCP -e "exit" $dbName >/dev/null 2>&1 && return 0 || echo "" > /dev/null;
+        mysql -u $dbUser --protocol=TCP -h $PRIVATE_ADDR -e "exit" $dbName >/dev/null 2>&1 && return 0 || echo "" > /dev/null;
+        mysql -u $dbUser --password="$dbPass" --protocol=TCP -e "exit" $dbName >/dev/null 2>&1 && return 0 || echo "" > /dev/null;
+        mysql -u $dbUser --password="$dbPass" --protocol=TCP -h $PRIVATE_ADDR -e "exit" $dbName >/dev/null 2>&1 && return 0 || echo "" > /dev/null;
+        return -1;
+    fi
+    return 2;
+}
+
+function cv_installSQL(){
+    local dbName=$1
+    local dbUser=$2
+    local dbPass=$3
+    local sqlPath=$4
+    local skipIfDBExists=$5
+
+    # As tracked by BugZilla bug #216, mysql-server-5.0's postinst script is supposed to install
+    # mysql into the default run levels (i.e. 2, 3, 4, and 5). For whatever reason, it only installs
+    # into run level 3. Since the mysql and ezfw pacakages are installed at run level 2, this
+    # means the mysql-server-5.0's postinst "invoke-rc.d" doesn't actually start mysqld.
+    # Rather than fiddle with mysql-server-5.0's postinst or update-rc.d,
+    # if mysqld is not running, try to start it.
+    if [ ! -f /var/run/mysqld/mysqld.pid ] ; then
+        if [ -f /etc/init.d/mysql ] ; then
+            echo "`date`: Attempting to start mysql" >> $CV_DBLOG 2>&1
+            /etc/init.d/mysql start >> $CV_DBLOG 2>&1
+        else
+            echo "`date`: mysql is not running and does not appear to be installed" >> $CV_DBLOG 2>&1
+        fi
+    fi
+
+    if [ "$skipIfDBExists" = "1" ]; then
+        DB_EXISTS=0 && cv_dbExists $dbName $dbUser $dbPass && DB_EXISTS=1
+        [ $DB_EXISTS -eq 1 ] && echo "Database $dbName already exists, so not running $sqlPath" >> $CV_DBLOG && return 0;
+    fi
+
+    #Get the interface hooked up to the private interface
+    local PRIVATE_ADDR=`cv_getPrivateDbInterface`
+
+    echo "`date`: Attempting to run file: $sqlPath" >> $CV_DBLOG 2>&1
+    if [ -f /var/run/mysqld/mysqld.pid ]; then
+        if [ -S /var/run/mysqld/mysqld.sock ]; then
+            echo "...Attempting socket connection with no password" >> $CV_DBLOG 2>&1
+            mysql -u $dbUser --protocol=SOCKET < $sqlPath >> $CV_DBLOG 2>&1 && echo "...Success" >> $CV_DBLOG 2>&1 && return 0
+            echo "...Attempting socket connection with password" >> $CV_DBLOG 2>&1
+            mysql -u $dbUser --password="$dbPass" --protocol=SOCKET < $sqlPath >> $CV_DBLOG 2>&1 && echo "...Success" >> $CV_DBLOG 2>&1 && return 0
+        fi
+        echo "...Attempting TCP connection on localhost with no password" >> $CV_DBLOG 2>&1
+        mysql -u $dbUser --protocol=TCP < $sqlPath >> $CV_DBLOG 2>&1 && echo "...Success" >> $CV_DBLOG 2>&1 && return 0
+        echo "...Attempting TCP connection on $PRIVATE_ADDR with no password" >> $CV_DBLOG 2>&1
+        mysql -u $dbUser --protocol=TCP -h $PRIVATE_ADDR < $sqlPath >> $CV_DBLOG 2>&1 && echo "...Success" >> $CV_DBLOG 2>&1 && return 0
+        echo "...Attempting TCP connection on localhost with password" >> $CV_DBLOG 2>&1
+        mysql -u $dbUser --password="$dbPass" --protocol=TCP < $sqlPath >> $CV_DBLOG 2>&1 && echo "...Success" >> $CV_DBLOG 2>&1 && return 0
+        echo "...Attempting TCP connection on $PRIVATE_ADDR with password" >> $CV_DBLOG 2>&1
+        mysql -u $dbUser --password="$dbPass" --protocol=TCP -h $PRIVATE_ADDR < $sqlPath >> $CV_DBLOG 2>&1 && echo "...Success" >> $CV_DBLOG 2>&1 && return 0
+    fi
+
+    #If that didn't work, run it on next boot
+    # this bit removed per bug 522
+
+    # we should probably let the caller know we failed
+    return 1;
+}
+
+# Arguments: Current (old) revision, package name
+# If the given package name has any /ulc/etc/upgrade scripts *newer than*
+# the current (old) revision, they will be run.
+function handleOneTimeUpdates(){
+    OLD_MAJOR=`echo $1 | awk 'BEGIN{FS="."} {print $1}'`
+    OLD_MINOR=`echo $1 | awk 'BEGIN{FS="."} {print $2}'`
+    OLD_MAINT=`echo $1 | awk 'BEGIN{FS="."} {print $3}'`
+    OLD_BUILD=`echo $1 | awk 'BEGIN{FS="."} {print $4}'`
+    OLD_VERSION=$((10#$OLD_BUILD+10#$OLD_MAINT*1000+10#$OLD_MINOR*100000+10#$OLD_MAJOR*10000000))
+    echo "Looking for one-time upgrade scripts for builds after $1 ($OLD_VERSION)";
+    
+    #Upgrade files are in the form VERSION.BUILD_DD_XYZ.sh, where DD is a number for sorting, and XYZ is a descriptive name
+    for i in /usr/local/ezfw/etc/upgrade/*; do
+        [ ! -x $i ] && continue;
+        [ "`dpkg -S $i 2>&1 | cut -d':' -f1`" != "$2" ] && continue;    # don't process files provided by another package
+        VERSION_PART=`basename $i | awk 'BEGIN{FS="_"} {print $1}'`
+        FILE_MAJOR=`echo $VERSION_PART | awk 'BEGIN{FS="."} {print $1}'`
+        FILE_MINOR=`echo $VERSION_PART | awk 'BEGIN{FS="."} {print $2}'`
+        FILE_MAINT=`echo $VERSION_PART | awk 'BEGIN{FS="."} {print $3}'`
+        FILE_BUILD=`echo $VERSION_PART | awk 'BEGIN{FS="."} {print $4}'`
+        FILE_VERSION=$((10#$FILE_BUILD+10#$FILE_MAINT*1000+10#$FILE_MINOR*100000+10#$FILE_MAJOR*10000000))
+    
+        if [ $OLD_VERSION -lt $FILE_VERSION ]; then
+            echo "...Running $i"
+            $i
+        fi
+    done
+}
+
+# SYNTAX: init_entry TAGNAME INITTAB_LINE
+#    e.g.   init_entry myservice SN:234:respawn:/path/to/cmd
+#  the service in inittab would look like this:
+#  #-- myservice begin
+#  SN:234:respawn:/path/to/cmd
+#  #-- myservice end
+#
+#  if no inittab line is given, the service is removed
+#    e.g.  init_entry myservice
+#  would remove all lines between:
+#      #-- myservice begin
+#  to 
+#     #-- myservice end
+function init_entry () (
+    local TAG=$1
+    shift;
+    local LINE="$*"
+
+    [ -z "$TAG" ] && return 1;
+
+    if grep -q '#-- '$TAG' begin' /etc/inittab; then
+        sed -e '/#-- '$TAG' begin/,/#-- '$TAG' end/d' /etc/inittab > /tmp/inittab.$$ || return $?
+        if [ -z "$LINE" ]; then
+            mv -f /tmp/inittab.$$ /etc/inittab;
+            kill -s HUP 1;
+            return 0;
+        fi
+    else
+        [ -z "$LINE" ] && return 0;
+        cp /etc/inittab /tmp/inittab.$$ || return $?;
+    fi
+
+    cat >>/tmp/inittab.$$ <<EOF
+#-- $TAG begin
+$LINE
+#-- $TAG end
+EOF
+
+    mv -f /tmp/inittab.$$ /etc/inittab;
+    kill -s HUP 1;
+    return 0;
+)
+
+# SYNTAX:   fixperm [-u user] [-g group] [-p perm] [-d root_dir ] file [file...]
+function fixperm () {
+    local USR=
+    local GRP=
+    local PERM=
+    local FILES=( )
+    local FC=0
+    local POP=0
+
+    while [ "x$1" != "x" ]; do
+        case "$1" in
+            -[uU])
+                USR=$2;
+                shift; shift;
+                continue;
+            ;;
+            -[gG])
+                GRP=$2;
+                shift; shift;
+                continue;
+            ;;
+            -[dD])
+                if ! pushd "$2" > /dev/null; then
+                    echo "fix_perm: Could not chdir to '$2'" >&2;
+                    return 1;
+                fi;
+                POP=1;
+                shift; shift;
+                continue;
+            ;;
+            -[pP])
+                PERM=$2;
+                shift; shift;
+                continue;
+            ;;
+            *)
+                FILES[${#FILES[@]}]=$1;
+                shift;
+                continue;
+            ;;
+        esac;
+    done;
+
+    if [ ${#FILES[@]} -ne 0 ] && ! [ -z "$USR" -a -z "$GRP" -a -z "$PERM" ]; then
+        if [ ! -z "$USR" ]; then
+            [ -z "$GRP" ] && USRGRP="$USR" || USRGRP="$USR:$GRP"
+            chown $USRGRP "${FILES[@]}";
+        else
+            [ ! -z "$GRP" ] && chown $GRP "${FILES[@]}"
+        fi
+
+        [ ! -z "$PERM" ] && chmod $PERM "${FILES[@]}"
+
+    fi
+
+    [ "x$POP" = "x1" ] && popd > /dev/null
+    return 0;
+}
+
+if [ -z "$( declare -f modify_services )" ]; then
+    function _load_and_run () {
+        cv_load_lib 'service-control-functions';
+        local CMD=$1; shift;
+        $CMD "$@";
+        return $?;
+    }
+    function modify_service () { _load_and_run 'modify_service' "$@"; return $?; }
+    function disable_service() { _load_and_run 'disable_service' "$@"; return $?; }
+    function enable_service () { _load_and_run 'enable_service' "$@"; return $?; }
+    function start_service    () { _load_and_run 'start_service' "$@"; return $?; }
+    function stop_service    () { _load_and_run 'stop_service' "$@"; return $?; }
+    function add_service    () { _load_and_run 'add_service' "$@"; return $?; }
+    function remove_service    () { _load_and_run 'remove_service' "$@"; return $?; }
+fi;
+

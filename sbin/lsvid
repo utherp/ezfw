@@ -1,0 +1,290 @@
+#!/usr/bin/perl -w
+use Date::Format;
+
+my @colsizes = (0);
+my $params = '';
+my $show_filenames = 0;
+my $color_opt = 'auto';
+my $DIVIDER = '-';
+my $SPACER = ' ';
+
+foreach (@ARGV) {
+    /^-f$/i and $show_filenames = 1 and next;
+    /^--color=(.*)$/ and $color_opt = $1 and next;
+    $params .= ' ' . $_;
+}
+
+my $min_spacing = 3;
+my $max_spacing = 10;
+my $max_width = 20;
+my $scr_width = int(`tput cols`);
+my $DEBUG = 0;
+
+my %colors;
+
+$color_opt = 'always' if ($color_opt eq 'auto' && -t STDOUT);
+my %codes = (
+    'start', 'ex',
+    'end', 'so',
+    'length', 'ln',
+    'size', 'di',
+    'gap', 'or',
+    'filename', 'fi',
+    'reset', 'no'
+);
+
+if ($color_opt eq 'always') {
+    %colors = (
+        'start', "\033[32m",
+        'end', "\033[31m",
+        'length', "\033[33m",
+        'size', "\033[34m",
+        'gap',  "\033[01;31m",
+        'filename', "\033[01;37m",
+        'reset', "\033[00m"
+    );
+    if (defined $ENV{'LS_COLORS'}) {
+        my $tmp = ':' . $ENV{'LS_COLORS'};
+        $tmp =~ /:$codes{$_}=([0-9;]+?):/ and $colors{$_} = "\033[$1m" foreach (keys %codes);
+    }
+} else {
+    %colors = (
+        'start', '',
+        'end',   '',
+        'length','',
+        'size',  '',
+        'gap',   '',
+        'filename', '',
+        'reset', ''
+    );
+};
+
+my $total_size = 0;
+my $total_length = 0;
+my $count = 0;
+my $earliest = 0xffffffff;
+my $latest = 0;
+my $total_gap = 0;
+
+my $last = 0;
+
+my @list = `ls -lA $params`;
+exit 1 if (!@list);
+
+my @buff;
+
+sub print_justify {
+    my $col = shift;
+    my $str = shift;
+    my $tmp = $str;
+    $tmp =~ s/\n//;
+    $tmp =~ s/\033\[[0-9;]+m//g;
+    my $len = length($tmp) + $min_spacing;
+
+#   print "col len is '$len'(-$min_spacing) for str: '$tmp'\n";
+    $colsizes[$col] = $len if ($col && (! defined($colsizes[$col]) || $colsizes[$col] < $len));
+
+    push(@buff, $col, $len-$min_spacing, $str);
+    return;
+}
+
+sub flush_buffer {
+    my $twidth = 0;
+    shift(@colsizes);
+    $twidth += $_ foreach @colsizes;
+
+#   print "twidth: $twidth ($scr_width)\n";
+
+    if ($twidth < $scr_width) { 
+        my $tmp = $scr_width-$twidth;
+        my $each = int($tmp/(@colsizes));
+#       $xtra = $tmp - $each; 
+        $each = $max_spacing if ($each > $max_spacing);
+    
+#       print "tmp: $tmp\neach: $each\nxtra: $xtra\n";
+        my $max = 0;
+        my $lrg = 0;
+    
+        for (my $i = 0; $i < @colsizes; $i++) {
+            next if ($colsizes[$i] > $max_width);
+            $colsizes[$i] += $each;
+            $colsizes[$i] = $max_width if ($colsizes[$i] > $max_width);
+        }
+    }
+
+    $twidth += $_ foreach @colsizes;
+
+    unshift(@colsizes, 0);
+
+    my $longest = 1;
+    my $line_len = 0;
+    my @lines;
+    my $i = 0;
+    while (@buff) {
+        my $col = shift(@buff);
+        my $len = shift(@buff);
+        my $str = shift(@buff);
+
+        if ($str eq '!DIV!') {
+            push(@lines, '!!'.$line_len.'!!');
+            $i = @lines;
+            $lines[$i] = '';
+            $line_len = 0;
+            next;
+        }
+        $lines[$i] .= $str;
+        $line_len += $len;
+        if ($str =~ /\n/) {
+            $longest = $line_len if ($line_len > $longest);
+            $line_len = 0;
+            $i = @lines;
+            $lines[$i] = '';
+            next;
+        }
+
+        my $spc = int(($colsizes[$col]-$len) / length($SPACER));
+        $spc = 1 if $spc < 1;
+        $line_len += $spc;
+
+        $lines[$i] .= "$SPACER"x($spc);
+    }
+
+    my $divlen = int($longest / length($DIVIDER));
+    foreach (@lines) {
+        print $_ and next unless (/^!!([0-9]+)!!$/);
+        my $line_len = $1;
+        print "$DIVIDER"x($divlen - $line_len) . "\n";
+    }
+
+    return $longest;
+}
+
+sub print_entry {
+    my $size = shift;
+    my $start = shift;
+    my $end = shift;
+    my $length = (@_)?shift:($end - $start);
+    my $gap = (@_)?shift:0;
+    my $fn = (@_)?shift:'';
+
+    print_justify(1, $colors{'size'} . readable_size($size));
+
+    my $tmp = $colors{'start'} . (($start!=-1)?time2str('%x %X', $start):'none');
+    print_justify(2, $tmp);
+
+    $tmp = $colors{'end'} . (($end!=-1)?time2str('%x %X', $end):'none');
+    print_justify(3, $tmp);
+
+    $tmp = $colors{'length'} . (($length)?readable_length($length):0);
+    print_justify(4, $tmp);
+
+    $tmp = $colors{'gap'} . readable_length($gap);
+    $tmp .= $colors{'reset'} . "\n" unless $show_filenames;
+    print_justify(5, $tmp);
+
+    print_justify(6, $colors{'filename'} . $fn . $colors{'reset'} . "\n") if $show_filenames;
+    return;
+}
+
+
+print_justify(1, $colors{'size'} . "Size");
+print_justify(2, $colors{'start'} . "Start");
+print_justify(3, $colors{'end'} . "End");
+print_justify(4, $colors{'length'} . "Length");
+{ my $tmp =  $colors{'gap'} . 'Gap' . $colors{'reset'};
+  $tmp .= "\n" unless $show_filenames;
+  print_justify(5, $tmp);
+}
+print_justify(6, $colors{'filename'} . 'Filename' . $colors{'reset'} . "\n") if $show_filenames;
+print_justify(0, '!DIV!');
+
+foreach (@list) {
+    next unless /([0-9]*?)-([0-9]*?)\.(flv|mpg)\n$/;
+    my $fn = "$1-$2.$3";
+    my $start = int($1);
+    my $end = int($2);
+    my $gap = ($last)?($start - $last):0;
+    my $length = ($end - $start);
+
+    $earliest = $start if $start < $earliest;
+    $latest = $end if $end > $latest;
+    $count++;
+
+    my @tmp = split(/ +/);
+    pop(@tmp);
+
+    print_justify(0, $colors{'gap'} . "\tWARNING: Large Video Gap of " . readable_length($gap) . '!' . $colors{'reset'} . "\n")
+        if ($last && $last < ($start - 120));
+
+    $last = $end;
+    $total_gap += $gap;
+    $total_length += $length;
+    $total_size += int($tmp[4]);
+
+    print_entry($tmp[4], $start, $end, $length, $gap, $fn);
+}
+
+print_justify(0, '!DIV!');
+$scr_width = flush_buffer();
+#$min_spacing = 2;
+
+#$DEBUG = 1;
+
+print_justify(1, $colors{'size'} . "Total Size");
+print_justify(2, $colors{'start'} . "Earliest");
+print_justify(3, $colors{'end'} . "Latest");
+print_justify(4, $colors{'length'} . "Total Length");
+print_justify(5, $colors{'gap'} . 'Total Gap' . $colors{'reset'} . "\n");
+
+$earliest = $latest = -1 unless $count;
+
+print_entry($total_size, $earliest, $latest, $total_length, $total_gap);
+#print $colors{'gap'} . "\tTotal Gap: " . readable_length($total_gap) . $colors{'reset'} . "\n";
+
+flush_buffer();
+
+sub readable_length {
+    my $len = shift;
+    return '' unless $len;
+    my $str = '';
+    my ($s, $m, $h) = ($len,0,0);
+
+    if ($s > 60) {
+        $m = int($s/60);
+        $s = $s%60;
+        if ($m > 60) {
+            $h = int($m/60);
+            $m = $m%60;
+#           $h = ' '.$h if ($h && $h < 10);
+        }
+        $m = '0'.$m if ($m && $m < 10);
+    }
+    $s = '0'.$s if ($s < 10);
+
+#   $str = $h . ' Hr' if $h;
+    $str = $h if $h;
+    $str .= ':' if ($str && $m);
+    $str .= $m if $m;
+    $str .= ':' if ($str && $s);
+    $str .= ($str)?$s:(int($s) . ' Sec');# if $str;
+
+    return $str;
+}
+
+
+sub readable_size {
+    my $n = shift;
+
+    return int($n/1000000) . ' MB' if ($n > 1000000);
+    return int($n/1000) . ' KB' if ($n > 1000);
+    return $n . ' B';
+    my $str = '';
+    my $w = 1000;
+    do {
+        $str = ','.$str if $str;
+        $str = ($n%1000) . $str;
+        $n = int($n/1000);
+    } while $n;
+
+    return $str;
+}

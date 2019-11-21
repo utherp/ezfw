@@ -1,0 +1,120 @@
+#include <stdint.h>
+#include <stdio.h>
+#include "celldef.h"
+#include "debug.h"
+#include "traceclr.h"
+
+typedef struct bmpfile_magic {
+  unsigned char magic[2];
+} bmp_magic_t;
+ 
+typedef struct bmpfile_header {
+  uint32_t filesz;
+  uint16_t creator1;
+  uint16_t creator2;
+  uint32_t bmp_offset;
+} bmp_header_t;
+
+typedef struct {
+  uint32_t header_sz;
+  int32_t width;
+  int32_t height;
+  uint16_t nplanes;
+  uint16_t bitspp;
+  uint32_t compress_type;
+  uint32_t bmp_bytesz;
+  int32_t hres;
+  int32_t vres;
+  uint32_t ncolors;
+  uint32_t nimpcolors;
+} bmp_dib_v3_header_t;
+
+typedef struct {
+    uint8_t b;
+    uint8_t g;
+    uint8_t r;
+    uint8_t pad;
+} bmp_color_t;
+
+
+uint8_t bmp_init = 0;
+
+/*******************************************************************************\
+|******* Functions *************************************************************|
+\*******************************************************************************/
+
+void init_bmp (uint32_t w, uint32_t h, char *dest) {
+    uint32_t px = w * h;
+
+    bmp_magic_t *magic = (bmp_magic_t*)dest;
+    bmp_header_t *header = (bmp_header_t*)(dest + 2);
+    bmp_dib_v3_header_t *info = (bmp_dib_v3_header_t*)(dest + 14);
+
+    magic->magic[0] = 'B';
+    magic->magic[1] = 'M';
+    header->bmp_offset = 40 + 14;
+    header->filesz = header->bmp_offset + (px * 4);
+
+    info->header_sz = 40;
+    info->width = w;
+    info->height = h;
+    info->bitspp = 24;
+    info->compress_type = 0;
+    info->bmp_bytesz = px * 4;
+    info->nplanes = 1;
+    info->hres = 2835;
+    info->vres = 2835;
+    info->ncolors = 0;
+    info->nimpcolors = 0;
+
+    bmp_init = 1;
+    return;
+}
+
+extern uint32_t frame_number;
+
+void make_bmp (uint32_t w, uint32_t h, cell_t *cells, char *dest) {
+
+    uint8_t *pixdata = (uint8_t*)(dest + 14 + 40);
+    int x, y, i = 0;
+//    cell_t *rstart = cells + (w * (h - 1));
+//    int counts[5] = { 0,0,0,0,0 };
+
+    int total = 0;
+
+    for (y = h - 1; y; y--) {
+        cell_t *ref = cells + (w * y);
+
+        int horz = 0;
+        for (x = 0; x < w; x++) {
+            total++;
+            uint8_t r = 0, g = 0, b = 0;
+
+            if (ref->set) {
+                b = (uint8_t)((ref->last_sharp[0] + ref->last_sharp[1] + ref->last_sharp[2]) * 2);
+                g = (uint8_t)((ref->last_sharp[0] + ref->last_sharp[3] + ref->last_sharp[2]) * 2);
+//                r = ref->set * 2;
+ //               b *= 2;
+ //               r *= 2;
+ //               g = ref->was;
+            }
+
+            pixdata[i++] = b;
+            pixdata[i++] = g;
+            pixdata[i++] = r;
+
+            horz++;
+
+            ref++;
+        }
+
+        int p;
+        for (p = horz % 4; p; p--, pixdata[i++] = 0);
+
+    }
+
+//    bmp_init = 0;
+    return;
+}
+
+

@@ -1,0 +1,74 @@
+#include "signaler.h"
+
+//struct in_addr signal_addr;
+
+extern struct timeval frame_ts;
+int sock;
+struct sockaddr_in delta_addr;
+struct sockaddr_in trigger_addr;
+
+int init_signaler () {
+	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (sock < 0) {
+		fprintf(stderr, "ERROR: failed creating udp socket: %s\n", strerror(errno));
+		return -1;
+	}
+
+	memset((char *)&delta_addr, 0, sizeof(delta_addr));
+	delta_addr.sin_family = AF_INET;
+
+	if (!inet_aton(_SIGNALER_ADDR_, &delta_addr.sin_addr)) {
+		printf("error, could not convert addr: %s\n", strerror(errno));
+		return -1;
+	}
+
+	memcpy((char *)&trigger_addr, (char *)&delta_addr, sizeof(delta_addr));
+
+	delta_addr.sin_port = htons(_SIGNALER_DELTA_PORT_);
+	trigger_addr.sin_port = htons(_SIGNALER_TRIGGER_PORT_);
+
+	return 0;
+}
+
+inline int init_zone_signaler(zonedef_t *zone) {
+	return 0;
+}
+
+void signal_zone_delta (zonedef_t *zone) {
+	int size = snprintf(zone->buf, 255, "%s:%.6f", zone->name, zone->delta);
+	_debug_flow("Sending zone delta: '%s'", zone->buf);
+	if (size > 255) size = 255;
+
+	int sent = sendto(sock, zone->buf, size, 0, (struct sockaddr *)&delta_addr, sizeof(delta_addr));
+
+	if (sent < 0)
+		fprintf(stderr, "Error sending: %s\n", strerror(errno));
+
+	return;
+}
+
+void signal_zone_active (zonedef_t *zone) {
+	_debug_verbose("Signaling zone '%s' active", zone->name);
+	int size = snprintf(zone->buf, 255, "%s:ACTIVE:%u.%06u:%u:%0.3f", zone->name, (uint32_t)frame_ts.tv_sec, (uint32_t)frame_ts.tv_usec, zone->active, zone->delta);
+
+	if (size > 255) size = 255;
+	int sent = sendto(sock, zone->buf, size, 0, (struct sockaddr *)&trigger_addr, sizeof(delta_addr));
+
+	if (sent < 0)
+		fprintf(stderr, "Error sending: %s\n", strerror(errno));
+
+	return;
+}
+
+void signal_zone_inactive (zonedef_t *zone) {
+	_debug_verbose("Sending zone '%s' inactive", zone->name);
+	int size = snprintf(zone->buf, 255, "%s:INACTIVE:%u.%06u:%u:%0.3f", zone->name, (uint32_t)frame_ts.tv_sec, (uint32_t)frame_ts.tv_usec, zone->active, zone->delta);
+	if (size > 255) size = 255;
+	int sent = sendto(sock, zone->buf, size, 0, (struct sockaddr *)&trigger_addr, sizeof(delta_addr));
+
+	if (sent < 0)
+		fprintf(stderr, "Error sending: %s\n", strerror(errno));
+
+	return;
+}
+

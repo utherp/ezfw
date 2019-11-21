@@ -1,0 +1,33 @@
+#!/bin/sh
+exec >>/usr/local/careview/logs/init/decimator.log
+exec 2>&1
+
+echo "`date`: Starting Decimator"
+
+[ -e /etc/hospital.conf ] && . /etc/hospital.conf;
+[ "x$CV_DECIMATE_DIR" = "x" ] && CV_DECIMATE_DIR=/usr/local/careview/video/decimating
+[ -d "$CV_DECIMATE_DIR" ] || mkdir "$CV_DECIMATE_DIR";
+
+if mount | grep -q "$CV_DECIMATE_DIR"; then
+    # unmount decimate dir first (in case size changes again)
+    umount -f "$CV_DECIMATE_DIR" > /dev/null 2>&1
+fi
+
+mount -ttmpfs -o size=200M "$CV_DECIMATE_DIR" "$CV_DECIMATE_DIR" || echo "ERROR: Failed to mount tmpfs at '$CV_DECIMATE_DIR'";
+
+# technically, we don't need this anymore since the remount
+# would clear the fs anyway... but I'll leave it here just
+# in case... doesn't hurt.  --Stephen
+cd "$CV_DECIMATE_DIR" && find ./ -name ".decimate_*" -delete;
+
+# if FAI is still running, wait before coming up to save processing power
+# after 15 minutes come up regardless
+waiting=0
+while [ -n "`pidof -x fai`" -a $waiting -lt 15 ]; do
+    echo "FAI is running, waiting..."
+    (( waiting++ ))
+    sleep 60
+done
+
+exec /usr/local/careview/bin/decimator.php
+

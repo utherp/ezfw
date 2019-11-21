@@ -1,0 +1,7 @@
+#!/usr/bin/php
+<?php
+	require_once('ezfw.php');
+
+	print_r(load_object(LOCATION_TYPE));
+?>
+

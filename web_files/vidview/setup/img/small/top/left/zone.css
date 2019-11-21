@@ -1,0 +1,21 @@
+.topleft.gray {
+	background-image: url('gray.gif');
+}
+.topleft.blue {
+	background-image: url('blue.gif');
+}
+.topleft.cyan {
+	background-image: url('cyan.gif');
+}
+.topleft.green {
+	background-image: url('green.gif');
+}
+.topleft.magenta {
+	background-image: url('magenta.gif');
+}
+.topleft.red {
+	background-image: url('red.gif');
+}
+.topleft.yellow {
+	background-image: url('yellow.gif');
+}

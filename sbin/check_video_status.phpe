@@ -1,0 +1,46 @@
+#!/usr/bin/php
+<?php
+    //Bug 893 9-12-11 Added extra checks to make sure we get the data we need, and not set the flags incorrectly --Van
+
+    require_once('ezfw.php');
+    require_once('registration_controls.php');
+    load_definitions('NODE_WEB');
+    load_definitions('FLAGS');
+
+    $reg = unserialize(
+                file_get_contents(
+                    'http://' . SERVER_HOST .'.'.DOMAIN_NAME. SERVER_WEB_ROOT . 
+                    '/setup/video_status.php' .
+                    '?mac=' . get_mac()
+                )
+            );
+
+    if (isset($reg['error'])) {
+        print "ERROR: from server: '{$reg['error']}'\n";
+        exit(1);
+    }
+    
+    if ($reg== FALSE) {
+        echo "Error: Could not get video status for RCP\n";
+    } else {
+        if (array_key_exists('video_disabled', $reg)) {
+            if ($reg['video_disabled']) raise_flag(VIDEO_DISABLED);
+            else lower_flag(VIDEO_DISABLED);
+        } else {
+            echo "Could not get video status from server\n";
+        }
+    
+        if (array_key_exists('recording_disabled', $reg)) {
+            if ($reg['recording_disabled']) raise_flag(RECORDING_DISABLED);
+            else lower_flag(RECORDING_DISABLED);
+        } else {
+            echo "Could not get recording status from server\n";
+        }
+
+        if (array_key_exists('nurse_privacy', $reg)) {
+            if ($reg['nurse_privacy']) raise_flag(NURSE_PRIVACY_FLAG);
+            else lower_flag(NURSE_PRIVACY_FLAG);
+        } else {
+            echo "Could not get nurse privacy status from server\n";
+        }
+    }

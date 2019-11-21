@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /usr/local/ezfw/sbin/toggle_tv.pl off

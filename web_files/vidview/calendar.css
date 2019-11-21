@@ -1,0 +1,91 @@
+div.wrapper {
+    width: 250px;
+    border: medium double #006699;
+}
+
+div.calendar {
+    width: 100%;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+div.calendar table.calHead { 
+    width: 100%;
+    font-weight: bolder; 
+    color: #006699;
+    background-color: #D1D7DC;
+    font-size: 17px;
+    text-align: center;
+}
+
+div.calendar table.calBody {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+div.calendar table.calBody tr.calDayNames {
+    background-color: #FFFFEE;
+}
+
+div.calendar table.calBody tr.calDayNames th {
+    width: 32px;
+    background-color: transparent;
+    font-weight: bolder;
+    color: #CD5C5C; /* IndianRed */
+    font-size: 17px;
+    text-align: center;
+}
+
+div.calendar table.calBody tr.calDays {
+}
+
+div.calendar table.calBody tr.calDays td {
+    padding-top: 2px;
+    padding-bottom: 2px;
+    width: 30px;
+    height: 20px;
+    font-size: 14px;
+    font-weight: normal;
+    background-color: #cccccc;
+    border-width: 1px;
+    border-color: #9999dd;
+    border-style: solid;
+    border-spacing: 1px;
+}
+div.calendar table.calBody tr.calDays td.noDay {
+    background-color: transparent;
+    border-style: none;
+}
+
+div.calendar table.calBody tr.calDays td.hasVideo {
+    background-color: #bbbbff; /*sky blue */
+    border: thin solid #4444ff;
+}
+
+div.calendar table.calBody tr.calDays td.hasVideo.hasStates {
+    background-color: #dc77d6; /* MediumOrchid */ 
+    border-color: #9A25A3;
+}
+
+div.calendar table.calBody tr.calDays td.hasVideo.hasEvents {
+    background-color: #dc77d6; /* MediumOrchid */ 
+    border-color: #9A25A3;
+}
+
+div.calendar table.calBody tr.calDays td#selectedDay {
+    border-width: 2px;
+    padding: 0px 0px 0px 0px;
+    border-spacing: 0px;
+    font-weight: bolder;
+    font-size: 16px;
+    background-color: #4CE081; /* MediumSeaGreen */
+    border-color: #0F8340;
+
+}
+
+div.calendar table.calBody tr.calDays td#currentDay {
+    background-color: #99ffff;
+    border: thin solid #55bbbb;
+}
+

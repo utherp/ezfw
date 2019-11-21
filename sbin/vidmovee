@@ -1,0 +1,272 @@
+#!/usr/bin/php
+<?php
+
+    require_once('ezfw.php');
+
+    function usage($fn) {
+        print <<<EOF
+
+USAGE: {$fn} [-delay N] SOURCE [SOURCE [...]] TARGET
+
+  SOURCE may in the following forms:
+    FILENAME:   
+      video file 'FILENAME' is the source.
+
+    -id VID:
+      source video of VID is moved to the target store. 
+
+    -ids VIDx VIDy:
+      all videos with id's ranging from VIDx to VIDy are moved to the
+      target store.
+
+    -time TIMESTR:
+      video for a specific time is the source.  TIMESTR may be any valid 
+      date/time string parsable by php's 'strtotime' function.
+
+    -range START END:
+      all videos ranging from START through END are the sourced.
+      format of START and END is same as in -time TIMESTR above.
+      If END is a relative time string such as "+2 days", or
+      "+5 hours", then the START time is used as the reference
+      time.  IF END is is a something like 'yesterday' or 'last monday',
+      then it is consitered relative to the current time.
+      e.g.:
+        source all from last monday to yesterday:
+          {$fn} -range "last monday" "yesterday"
+
+        source all from July 12th, 2009 from 2am - 4am:
+          {$fn} -range "july 12th 2009, 2am" "+2 hours"
+
+  TARGET may be in the following forms:
+    DIRNAME:
+      target directory DIRNAME is used.
+    
+    -store NAME:
+      source videos are moved (or imported) into store 'NAME'.
+
+  * If the source exists in secureView AND the target is a secureView
+    store, then the source is MOVED to the target store.
+
+  * If the source does *NOT* exist in secureView and the target is
+    a secureView store, then the video is IMPORTED to the target store.
+
+  * If the target is *NOT* a secureView store, then the source is copied
+    to the target, no changes are made to the source in secureView
+
+  Other options:
+    -delay N:
+      Delay N number of seconds between moves
+
+EOF;
+        exit(1);
+    }
+
+    function err() {
+        $args = func_get_args();
+        printto(STDERR, 'Error', $args);
+    }
+    function warn () {
+        $args = func_get_args();
+        printto(STDERR, 'Warning', $args);
+    }
+    function printto ($fh, $type, $args) {
+        $args[0] = $type . ': ' . $args[0] . "\n";
+        array_unshift($args, $fh);
+        call_user_func_array('fprintf', $args);
+        return;
+    }
+
+    function match_store_path ($path) {
+        $abs = preg_replace('/\/*$/', '', realpath($path));
+
+        $stores = store::fetch_all();
+        foreach ($stores as $s) {
+            $spath = preg_replace('/\/*$/', '', $s->abs_path());
+            if (!$spath) continue;
+            if (strpos($abs, $spath) === 0) {
+                // found store who's path matches the beginning of our target path
+                return $s;
+            }
+        }
+        return false;
+    }
+
+    if ($argc < 3) {
+        usage($argv[0]);
+        exit(1);
+    }
+
+    $srcs = array_slice($argv, 1);
+    $dest = array_pop($srcs);
+
+    $delay = 0;
+    if ($srcs[0] == '-delay') {
+        array_shift($srcs);
+        $delay = intval(array_shift($srcs));
+        print "Note: delaying for $delay seconds between moves\n";
+    }
+
+    $dtype = 'dir';
+
+    if ($srcs[count($srcs)-1] == '-store') {
+        array_pop($srcs);
+        try {
+            $target = store::fetch($dest);
+        } catch (Exception $e) {
+            err($e->getMessage());
+            exit($e->getCode());
+        }
+        $dtype = 'store';
+    } else {
+        if (!is_dir($dest)) {
+            err("Target '%s' is not a store or a valid directory!", $dest);
+            exit(2);
+        }
+        $target = match_store_path($dest);
+        if (!$target) {
+            // no store matching, copying to target directory instead
+            $dtype = 'dir';
+            $target = $dest;
+        } else
+            $dtype = 'store';
+    }
+
+    $ranges = array();
+    $files = array();
+    $vids = array();
+    $src_start = false;
+
+    /* parse source videos */
+    $total = count($srcs);
+    while (count($srcs)) {
+//    for ($i = 0; $i < count($srcs); $i++) {
+        $cur = array_shift($srcs);
+        switch ($cur) {
+            case ('-id'):
+                /* single video id */
+                $id = array_shift($srcs); //$srcs[$i];
+                $v = video::fetch($id);
+                if (!($v instanceOf video) || !$v->is_loaded()) {
+                    warn('Video of id "%s" not found', $id);
+                    continue;
+                }
+                $vids[] = $v;
+                continue;
+
+            case ('-ids'):
+                /* video id range */
+                $start = array_shift($srcs); //$srcs[$i];
+                $end = array_shift($srcs); //$srcs[++$i];
+                $vlist = video::fetch_id_range($start, $end);
+                if ($vlist === false) {
+                    warn('Unable to fetch videos in the id range of %s - $s', $start, $end);
+                    continue;
+                }
+                if (!count($vlist)) {
+                    warn('No videos with ids ranging from %s - %s', $start, $end);
+                    continue;
+                }
+                foreach ($vlist as $v) $vids[] = $v;
+                continue;
+
+            case ('-range'):
+                /* videos within a time range */
+                $start = array_shift($srcs); //$srcs[$i];
+                $end = array_shift($srcs); //$srcs[++$i];
+                $vlist = video::fetch_time_range($start, $end);
+                if (!is_array($vlist)) {
+                    warn('Unable to fetch videos in the time range of %s - %s', $start, $end);
+                    continue;
+                }
+                if (!count($vlist)) {
+                    warn('No videos within time range of %s - %s', $start, $end);
+                    continue;
+                }
+                foreach ($vlist as $v) $vids[] = $v;
+                continue;
+
+            default:
+                /* video from filename */
+                $base = basename($cur);
+                $v = video::fetch(array('filename'=>$base));
+                if (!($v instanceOf video)) {
+                    if (file_exists($cur)) {
+                        warn('Video "%s" not in secureView, importing...', $cur);
+                        $vids[] = $cur;
+                        continue;
+                    }
+                    warn('Video "%s" not found', $cur);
+                    continue;
+                }
+                $vids[] = $v;
+                continue;
+        }
+    }
+    
+    ob_end_flush();
+
+    $dpath = (($dtype == 'store')?($target->path . '/'):$target);
+    $dpath = preg_replace('/\/*$/', '/', $dpath);
+
+    $total = count($vids);
+    print "$total source videos...\n";
+
+    $nodelay = true;
+    foreach ($vids as $v) {
+        if ($nodelay) $nodelay = false;
+        else if ($delay) sleep($delay);
+
+        $isvid = ($v instanceOf video);
+        $fname = $isvid?$v->fullpath:$v;
+        print $fname . ' => ' . $dpath;// . $fname;
+        flush();
+        if ($dtype == 'store') {
+            /* destination is a store */
+            if ($isvid) {
+                /* source is a video file already in secureView */
+                $orig = $v->store;
+                $orig_tag = $orig->tag;
+                if ($orig_tag == $target->tag) {
+                    warn('Video %d already in store %s', $v->id, $orig_tag);
+                    $nodelay = true;
+                    continue;
+                }
+                $v->store = array($target);
+                $v->save();
+                if (!file_exists($v->fullpath)) {
+                    warn('Failed to move "%s" from "%s" store to "%s" store', $fname, $orig_tag, $target->tag);
+                    $v->store = $orig;
+                    $v->save();
+                    continue;
+                }
+                print "{$v->filename}  ({$orig_tag} => {$target->tag})\n";
+                continue;
+            }
+
+            /* source is a filename not currently in secureView */
+            system(abs_path('sbin', 'import_videos.php') . ' "' . escapeshellarg($target->tag) . '" "' . escapeshellarg($fname) . '" ', $ret);
+            if ($ret) {
+                warn('Failed to import "%s" into "%s" store', $fname, $target->tag);
+                continue;
+            }
+            print " (imported => {$target->tag})\n";
+            continue;
+        }
+
+        /* target is a directory not under secureView control, videos are copied */
+        $fbase = basename($fname);
+        print $fbase . '... ';
+        flush();
+        if (file_exists($dpath . $fbase)) {
+            warn('File "%s%s" already exists, not overwriting!', $dpath, $fbase);
+            $nodelay = true;
+            continue;
+        }
+        if (!copy($fname, $dpath . $fbase)) {
+            warn('Failed to copy "%s" to "%s": %s', $fname, $dpath.$fbase, last_error_message());
+            continue;
+        }
+        print "(copied)\n";
+
+    }
+

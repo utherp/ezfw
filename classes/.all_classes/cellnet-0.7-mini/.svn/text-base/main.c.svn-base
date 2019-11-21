@@ -1,0 +1,195 @@
+#define __MAIN_C__
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "module.h"
+#include "params.h"
+#include "feedscan.h"
+#include "main.h"
+#include "posix_shmseg.h"
+#include "debug.h"
+
+int cellnet_init();
+int cellnet_main();
+
+extern int frame_rate;
+extern int generate_bmps;
+
+extern uint32_t DIFF_FLOOR;
+extern int LUM_FLOOR_MULTIPLIER;
+extern double CELL_SHARP_FLOOR;
+extern double CELL_EDGE_FLOOR;
+extern int ZONE_MIN_MULTI;
+extern const char *input_filename;
+extern uint32_t MIN_ADJ_EDGES;
+extern uint32_t SUB_ADJ_EDGES;
+
+/********************
+ * global variables
+ *
+ */
+
+/*******************************************************************************
+ * main:
+ *     Process entry point.  Parses command line options, initializes the shared
+ *     memory segment, initializes the detection engine, and triggers it each
+ *     time the frame's index has changed.  In this time if the segment becomes
+ *     invalid, it detaches and attempts to reattach it until the writer has
+ *     come back online.
+ */
+
+extern const char *_MODULE_PATH;
+const char *module_name = _DEFAULT_MODULE_NAME_;
+const char *log_filename;
+
+int main (int argc, char **argv) {
+
+    /* Make stdout/stderr line (not block) buffered to see logs immediately */
+    setvbuf(stdout, (char *)NULL, _IOLBF, 0);
+    setvbuf(stderr, (char *)NULL, _IOLBF, 0);
+
+    /*******************************
+     * discover the cellnet module 
+     * we are to use
+     */
+    argspec_t args[11] = {
+      {
+        .name   =   "Logfile",
+        .desc   =   "Log filename",
+        .longopt=   "logfile",
+        .opt    =   'l',
+        .type   =   STRING,
+        .flags  =   ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .value  =   { .STRING = _DEFAULT_LOG_FILENAME_ }
+      },
+      {
+        .name  = "LumMul",
+        .desc  = "Luminance floor multiplier",
+        .type  = INT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .longopt= "lummul",
+        .opt   = 'L',
+        .value = { .INT = DEF_LUM_MULTI }
+      },
+      {
+        .name  = "EdgeFloor",
+        .desc  = "Minimum clipping of cell edges",
+        .type  = FLOAT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .longopt= "edgefloor",
+        .opt   = 'E',
+        .value = { .FLOAT = DEF_EDGE_FLOOR }
+
+      },
+      {
+        .name  = "SharpFloor",
+        .desc  = "Minimum clipping of cell sharpness",
+        .type  = FLOAT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .longopt= "sharpfloor",
+        .opt   = 'F',
+        .value = { .FLOAT = DEF_SHARP_FLOOR }
+      },
+      {
+        .name  = "DiffFloor",
+        .desc  = "Minimum clipping for raw pixel changes",
+        .type  = INT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .longopt= "difffloor",
+        .opt   = 'f',
+        .value = { .INT = DEF_DIFF_FLOOR }
+      },
+      {
+        .name  = "Input",
+        .desc  = "Input filename containing YUV444 data",
+        .longopt= "input",
+        .opt   = 'i',
+        .type  = STRING,
+        .flags = ARG_REQ | ARG_PARAM_REQ | ARG_PARAM | ARG_ICASE,
+        .value = { .STRING = DEF_INPUT }
+      },
+      {
+        .name  = "Rate",
+        .desc  = "Frames per second, Rate at which the input is rescanned",
+        .longopt= "rate",
+        .opt   = 'r',
+        .type  = INT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .value = { .INT = DEF_RATE }
+      },
+      {
+        .name  = "Bmp",
+        .desc  = "Generate bmp of edges",
+        .longopt= "bmp",
+        .opt   = 'b'
+      },
+      {
+        .name  = "ZoneMinMulti",
+        .longopt= "zoneminmulti",
+        .desc  = "Zone requires X active pixels where X == log(total_pixels>>4) * zoneminmulti",
+        .type  = INT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .opt   = 'Z',
+        .value = { .INT = DEF_ZONE_MIN_MULTI }
+      },
+      {
+        .name  = "MinAdjEdges",
+        .longopt= "minadjedges",
+        .desc  = "Minimum adjacent edges",
+        .type  = INT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .opt   = 'E',
+        .value = { .INT = DEF_MIN_ADJ_EDGES }
+      },
+      {
+        .name  = "SubAdjEdges",
+        .longopt= "subadjedges",
+        .desc  = "Subtract adjacent edges before multiplying delta",
+        .type  = INT,
+        .flags = ARG_PARAM | ARG_PARAM_REQ | ARG_ICASE,
+        .opt   = 'S',
+        .value = { .INT = DEF_SUB_ADJ_EDGES }
+      }
+    };
+    
+    /* parse arguments */
+    if (parse_params(argc, argv, 11, args) == -1) return -1;
+    log_filename = args[0].value.STRING;
+
+    LUM_FLOOR_MULTIPLIER = args[1].value.INT;
+    CELL_EDGE_FLOOR = args[2].value.FLOAT;
+    CELL_SHARP_FLOOR = args[3].value.FLOAT;
+    DIFF_FLOOR = args[4].value.INT;
+
+    input_filename = args[5].value.STRING;
+
+    frame_rate = args[6].value.INT;
+    generate_bmps = args[7].found;
+
+    ZONE_MIN_MULTI = args[8].value.INT;
+
+    MIN_ADJ_EDGES = args[9].value.INT;
+    SUB_ADJ_EDGES = args[10].value.INT;
+
+    /* done parsing arguments */
+
+
+    /* open logfile */
+    open_logfile(log_filename);
+
+    /* initialize the engine */
+    if (cellnet_init()) {
+        _show_error("Init", "Failed to initialize cellnet engine!", 0);
+        return 5;
+    }
+
+    printf("Params:\n  Lum Floor Multi: %u\n  Zone Min Multi: %u\n  Diff Floor: %u\n  Edge Floor: %0.3f\n  Sharp Floor: %0.3f\n  Min Adj Edges: %u\n  Sub Adj Edges: %u\n\n",
+        LUM_FLOOR_MULTIPLIER, ZONE_MIN_MULTI, DIFF_FLOOR, CELL_EDGE_FLOOR, CELL_SHARP_FLOOR, MIN_ADJ_EDGES, SUB_ADJ_EDGES);
+
+    /* main engine loop (this and init may differ between binaries) */
+    return cellnet_main();
+
+}
+

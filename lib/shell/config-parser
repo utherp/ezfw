@@ -1,0 +1,194 @@
+#!/bin/bash
+
+if [ "x$CV_CONFIG_PARSER" != "x1" ]; then 
+    CV_CONFIG_PARSER=1
+
+    
+    # default boundary format for config segments
+    [ "x$CONF_BOUNDARY_FMT" = "x" ] && CONF_BOUNDARY_FMT="### %s %s ###";
+
+    # syntax:  remove_conf filename tag
+    #
+    #   Removes a configuration segment from a config file
+    #   the segment range is tagged with the following header
+    #   and footer:
+    #       ### START $tag ###
+    #           these lines are part of the configuration segment
+    #       ### END $tag ###
+    #
+    #   you may specify your own format to use for the header and
+    #   footer by setting the format in the environment variable
+    #   called 'CONF_BOUNDARY_FMT'.  The format should contain
+    #   two '%s' in it, the first is for "START" or "END", the
+    #   second is for the tag name.  If one or both are not specified
+    #   in the format, they will be appended.
+    #
+    # usage: remove_conf filename tag
+    function remove_conf () {
+        local filename=$1
+        local tag=$2
+        if [ "x$tag" = "x" -o "x$filename" = "x" ]; then
+            echo "Tag or file not specified" >&2
+            return 1;
+        fi
+        if [ ! -e "$filename" ]; then 
+            echo "filename '$filename' not found" >&2
+            return 0
+        fi;
+        local tmpname="/tmp/remove_conf-tmp.$$"
+    
+        [ "x$CONF_BOUNDARY_FMT" = "x" ] && CONF_BOUNDARY_FMT="### %s %s ###";
+
+        local boundary=$CONF_BOUNDARY_FMT
+
+        while ! grep "%s.*%s" <<<"$boundary"; do 
+            echo "Warning: Malformed CONF_BOUNDARY_FMT, appending '%s'" >&2
+            boundary+=" %s";
+        done;
+
+        local starttag=`printf "$boundary" START "$tag" | sed 's,/,\\/,g'`;
+        local endtag=`printf "$boundary" END "$tag" | sed 's,/,\\/,g'`;
+
+        exec 5>/tmp/awk_rem_tmp.$$
+        echo "BEGIN { p = 1 }" >&5
+        echo "p == 1 && \$0 ~ /$starttag/ { p = 0 }" >&5
+        echo "p == 0 && \$0 ~ /$endtag/ { p = -1 }" >&5
+        echo "p == 1 { print }" >&5
+        echo "p == -1 { p = 1 }" >&5
+        exec 5>&-
+    
+        if ! /usr/bin/awk -f /tmp/awk_rem_tmp.$$ -- "$filename" > "$tmpname"; then
+            echo "awk failed attempting to remove conf for tag '$tag' in filename '$filename'" >&2
+            rm "$tmpname" /tmp/awk_rem_tmp.$$
+            return 0;
+        fi
+    
+        rm /tmp/awk_rem_tmp.$$
+    
+        mv -f "$tmpname" "$filename"
+    
+        return 0;
+    }
+    
+    
+    # syntax: add_conf filename tagname [start_pattern1 [start_pattern2[...]]]  <configuration
+    #
+    #   Adds a configuration segment to filename, surrounded by boundary
+    #   lines in the format equaling:  `printf "$CONF_BOUNDARY_FMT" (START|END) $tag`
+    #   (START/END used for the starting end ending boundaries respectively)
+    #
+    #   The actual configuration to add within the boundaries is read from the
+    #   stdin.  As with remove_conf above, the boundary format may be changed
+    #   by setting the environment variable 'CONF_BOUNDARY_FMT', which should
+    #   contain two '%s' within, to mark START/END and tag, if missing, one
+    #   or both shall be appended to the end of the format.
+    #
+    function add_conf () {
+        local filename="$1"
+        shift
+        local tag=$1
+        shift
+    
+        # determine the boundary format
+        [ "x$CONF_BOUNDARY_FMT" = "x" ] && CONF_BOUNDARY_FMT="### %s %s ###";
+
+        local boundary=$CONF_BOUNDARY_FMT
+
+        while ! grep "%s.*%s" <<<"$boundary"; do 
+            echo "Warning: Malformed CONF_BOUNDARY_FMT, appending '%s'" >&2
+            boundary+=" %s";
+        done;
+
+        if [ ! -e "$filename" ]; then 
+            echo "filename '$filename' not found" >&2
+            if [ "x$1" != "x" ]; then
+                # we can't just write out the conf, it seems
+                # its supposed to go in a specific place!
+                echo "--> patterns specified, cannot write conf" >&2
+                return 1;
+            fi
+            # just write in the conf, since the file does not exist
+            touch $filename
+        fi
+    
+        if [ "x$1" = "x" ]; then
+            # no patterns, just append to the end of file
+            cp "$filename" "${filename}.pre_add_conf-$tag"
+    
+            exec 5>>$filename
+            # start boundary
+            printf "$boundary\n" START "$tag" >&5
+            # gobble up the stdin and redirect it to our output file
+            cat >&5
+            # end boundary
+            printf "$boundary\n" END "$tag" >&5
+            exec 5>&-
+    
+            rm "${filename}.pre_add_conf-$tag"
+            return 0
+        fi;
+    
+        # patterns specified, use awk to find proper location...
+    
+        local tmpname=/tmp/add_conf-tmp.$$
+        local c=0
+    
+        # fd 5 creates or clobbers and writes to awk script
+        exec 5>/tmp/awk_pre_tmp.$$
+    
+        echo "BEGIN { l = 0 }" >&5
+    
+        # build awk script...
+        while [ "x$1" != "x" ]; do
+            echo "l == $c && \$0 ~ /$1/ { l += 1 }" >&5
+            let c+=1
+            shift;
+        done;
+    
+        # the file before all matches...
+        cp /tmp/awk_pre_tmp.$$ /tmp/awk_pst_tmp.$$
+        echo "l <= $c { print }" >&5
+        echo "l == $c { l += 1 }" >&5
+        exec 5>&-
+    
+        # fd 5 appends to modified config file
+        exec 5>>$tmpname
+    
+        if ! /usr/bin/awk -f /tmp/awk_pre_tmp.$$ -- "$filename" >&5; then
+            echo "awk failed to parse file before matches" >&2
+    #        rm -f "$tmpname" /tmp/awk_p[rs][et]_tmp.$$
+            return 1;
+        fi  
+    
+        # add the input data...
+        # start boundary
+        printf "$boundary\n" START "$tag" >&5
+        # gobble up the stdin and redirect it to our output file
+        cat >&5
+        # end boundary
+        printf "$boundary\n" END "$tag" >&5
+        exec 5>&-
+    
+        # fd 5 appends to copy of initial awk script
+        exec 5>>/tmp/awk_pst_tmp.$$
+    
+        # the file after all matches...
+        echo "l > $c { print }" >&5
+        echo "l == $c { l += 1 }" >&5
+        exec 5>&-
+    
+        if ! /usr/bin/awk -f /tmp/awk_pst_tmp.$$ -- "$filename" >> "$tmpname"; then
+            echo "awk failed to parse file after matches" >&2
+            rm -f "$tmpname" /tmp/awk_p[rs][et]_tmp.$$
+            return 1;
+        fi  
+    
+        rm -f /tmp/awk_p[rs][et]_tmp.$$
+    
+        cp "$filename" "${filename}.pre_add_conf-$tag"
+        mv -f "$tmpname" "$filename"
+    
+        return 0;
+    }
+
+fi;

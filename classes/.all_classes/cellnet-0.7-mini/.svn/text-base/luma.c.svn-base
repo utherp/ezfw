@@ -1,0 +1,214 @@
+#define __CELL_C__
+#define _CELLNET_MODULE_
+
+#include <unistd.h>
+#include <math.h>
+#include <stdlib.h>
+
+#include "celldef.h"
+#include "debug.h"
+#include "conf.h"
+
+int add_delta_to_bitzones (uint64_t bits, double delta);
+
+static inline int poke_cell (cell_t *cell) {
+    double diff = 0.0;
+
+    cell->sharp[0] = 0.0;
+    cell->sharp[1] = 0.0;
+    cell->sharp[2] = 0.0;
+    cell->sharp[3] = 0.0;
+
+    int ang;
+    for (ang = 0; ang < 4; ang++) {
+        double tmp = cell_sharp(cell, ang);
+        diff += fabs(cell->last_sharp[ang] - tmp);
+        cell->last_sharp[ang] =  tmp;
+    } 
+
+    if (diff < SHARP_DIFF_FLOOR) return 0;
+
+    add_delta_to_bitzones(cell->zones, diff);
+
+    return 1;
+}
+
+/******************************************
+ * cell_chroma: 
+ *
+ */
+static inline void cell_chroma (cell_t *cell) {
+  flags_t * restrict flags = &cell->flags;
+  double * restrict U = &cell->chroma.u;
+  double * restrict V = &cell->chroma.v;
+  uint8_t * pix = cell->pix;
+
+  if (!flags->cache.chroma) {
+    _debug_flow("reading chroma from %p", cell->pix);
+
+    flags->cache.chroma = 1;
+    (*U) = (((double)pix[1]) - 128) / 128;
+    (*V) = (((double)pix[2]) - 128) / 128;
+
+    _debug_flow("..read chroma", 0);
+  }
+
+  return;
+}
+
+
+/*************************************
+ * cell_radians:
+ *
+ */
+static inline double cell_radians (cell_t *cell) {
+  double * restrict rads = &cell->radians;
+  flags_t * restrict flags = &cell->flags;
+
+  if (!flags->cache.rads) {
+    // determine radians from 12 o'clock around the center point
+    // of the UV colorspace ( see: http://en.wikipedia.org/wiki/YUV )
+
+    cell_chroma(cell);
+    double U = cell->chroma.u;
+    double V = cell->chroma.v;
+    if (!U) {
+      (*rads) = (V>0)?PI:0;
+    } else if (!V) {
+      (*rads) = (PI / 2);
+      if (U < 0) (*rads) *= 3;
+    } else {
+      (*rads) = atan(U / V);
+      if (V < 0)
+        (*rads) += PI;
+      else if (U < 0)
+        (*rads) += (2 * PI);
+    }
+
+    flags->cache.rads = 1;
+
+
+    if (fabs(U) < .01 || fabs(V) < .01)
+        cell->color = CLR_MAX;
+    else {
+        int c;
+        for (c = 0; c < CLR_MAX; c++) {
+            if ((*rads) > __rad_range[c]) continue;
+            cell->color = c;
+            break;
+        }
+    }
+
+    clr_count[cell->color]++;
+
+  }
+
+  return *rads;
+}
+
+
+
+/***************************************
+ * cell_radius:
+ *
+ */
+static inline double cell_radius (cell_t *cell) {
+  double * restrict radius = &cell->radius;
+  flags_t * restrict flags = &cell->flags;
+
+  if (!flags->cache.radius) {
+    // determine radius
+    cell_chroma(cell);
+    double * restrict U = &cell->chroma.u;
+    double * restrict V = &cell->chroma.v;
+    (*radius) = hypot(*U, *V);
+    flags->cache.radius = 1;
+  }
+  return *radius;
+}
+
+
+/************************************8
+ * cell_edge:
+ *
+ */
+static inline double cell_edge_to (cell_t *cell, cell_t *next) {
+    if (!next) return 0.0;
+  
+    uint8_t *npix = next->pix;
+    uint8_t *cpix = cell->pix;
+  
+/*    
+    if (!yrange || !yavg) {
+      _show_warning("Edge", "potential division by zero: yrange: %u, yavg: %u", yrange, yavg);
+      if (!yrange) yrange = 130;
+      if (!yavg) yavg = 90;
+    }
+*/
+  /* method 1 */      
+      double nlum = npix[0];
+      double clum = cpix[0];
+
+      clum = fabs(nlum - clum);
+      clum /= yrange;
+
+      int tmp = (yrange - ylow - yavg);
+      if (tmp < 1) tmp = 1;
+      clum *= tmp;
+
+      if (clum < (yrange / yavg) * LUM_FLOOR_MULTIPLIER) clum = 0;
+  /* end method 1 */
+   
+    return clum;
+
+}
+
+/**************************************/
+
+static inline double cell_edge (cell_t *cell, int dir) {
+  /* cell holds edgeness for NW, N, NE, and W, 
+   * if looking for E, SW, S or SW, then
+   * call same func with cell in that
+   * direction, asking for inverse direction's
+   * edgeness
+   */
+
+  int inv = 7 - dir;
+  cell_t *next = cell->net.link[dir];
+  cell_t *prev = cell->net.link[inv];
+  int plane = (dir>inv)?inv:dir;
+
+  double * restrict edge = &cell->edge.link[plane];
+
+  if (!next || !prev)
+     return (*edge) = 0.0;
+
+  return (*edge) = cell_edge_to(prev, next);
+}
+
+
+/************************************
+ * cell_sharp:
+ *
+ */
+
+FUNCATTRS double cell_sharp(cell_t *cell, int dir) {
+    if (dir > 3) dir = 3 - dir;
+    int inv = 3 - dir;
+    int plane = (inv<dir)?inv:dir;
+    double * restrict sharp = &cell->sharp[plane];
+
+    cell_t *next = cell->net.link[dir];
+    cell_t *prev = cell->net.link[inv];
+
+    if (!next || !prev) {
+        (*sharp) = 0.0;
+    } else {
+        (*sharp) = cell_edge(cell, plane);
+        if ((*sharp) < CELL_SHARP_FLOOR)
+            (*sharp) = 0.0;
+    }
+
+    return (*sharp);
+}
+

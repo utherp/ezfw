@@ -1,0 +1,207 @@
+/* here is where you'll define all the css for your 
+    page's global layout / header or footers
+*/
+
+.calHeader
+{ 
+    font-weight: bolder; 
+    color: #CC0000; 
+    background-color: #FFFFEE; 
+	font-size: 17px;
+}
+
+.calToday
+{ 
+    background-color: #FFFFFF;
+	font-size: 14px;
+}
+
+.calendar
+{ 
+    background-color: #e5e5e5;
+	font-size: 14px;
+}
+.calyear
+{
+	color: #006699;
+	background-color: #D1D7DC;
+	font-size: 17px;
+}
+td
+{
+	text-align : center;
+}
+th
+{
+	 color: #006699;
+	 background-color: #D1D7DC;
+	 font-size: 17px;
+}
+.choosed
+{ 
+    background-color: yellow;
+	font-size: 16px;
+}
+body{
+	background-image: url(../img/blubk.jpg);
+	background-attachment: fixed;
+}
+
+.content_text{
+	text-decoration : none;
+	color : #223268;
+}
+
+.content_text:hover	{
+	text-decoration: none;
+	color : #DD6900;
+	background-color : #ccffcc;
+}
+
+.odd_row{
+	background-color : #e5e5e5;
+	color: #223268;
+	text-align : center;
+}
+
+.even_row{
+	background-color : #ccccdd;
+	color: #223268;
+	text-align : center;
+}
+.select_row{
+	background-color : yellow;
+	font-weight : bolder;
+}
+.back_row{
+	background-color : #aaaabb;
+}
+.selected_cell{
+	font-weight : bolder;
+	color: #425288;
+	text-align : center;
+}
+.main_title{
+	font-size : large;
+	color : #223268;
+	background-color : #ccccdd;
+}
+
+.mouse_over{
+	background-color : #e5e5e5;
+	color: #223268;
+	text-align : center;
+}
+
+.hand {
+	cursor: pointer;
+	color: #0000ff;
+	text-decoration: none;
+} 
+
+h1
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 30px;
+	color: #223268;
+}
+
+h2
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 18px;
+	color: #223268;
+}
+
+.tblhead
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 22px;
+	color: #223268;
+}
+
+.logfrm
+{
+	font-size: 18px;
+	font-weight: normal;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: white;
+	background-color:#223268;
+}
+.lbl {
+	background-color: #223268;
+	font-size: 20px;
+	color: white;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	padding: 8px;
+	display: block;
+	width: 200px;
+	font-weight: 800;
+	text-align: center;
+	cursor : pointer;
+}
+.saver {
+	background-color: #cc3399;
+	font-size: 15px;
+	font-weight: bolder;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	z-index: 10;
+	width: 60px;
+	height: 60px;
+	text-align: center;
+	color: white;
+	padding: 0px;
+	display: block;
+	cursor: pointer;
+}
+.logout {
+	background-color: #cc3399;
+	font-size: 15px;
+	color: white;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	padding: 0px;
+	display: block;
+	width: 100px;
+	font-weight: 800;
+	text-align: center;
+	cursor : pointer;
+}
+a { text-decoration: none; }
+.fnt 
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #223268;
+}
+.f36 { font-size: 36px; }
+.f26w { font-size: 26px; font-weight: 800; }
+.f24 { font-size: 24px; }
+.f20 { font-size: 20px; }
+.f14 { font-size: 14px; }
+.f12 { font-size: 12px; }
+.f12w { font-size: 14px; color: White; font-weight : bold; }
+
+.msgbar 
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px; 
+	font-weight: bold;
+	background-color:#223268; 
+	color: white;
+}
+.msg
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px; 
+	font-weight: normal;
+	background-color:#7C9CCD; 
+	color: white;
+}
+
+.phone
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 14px; 
+	font-weight: normal;
+	background-color:#5C75B0; 
+	color: white;
+}

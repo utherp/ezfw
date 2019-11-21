@@ -1,0 +1,4 @@
+#!/bin/bash
+# Use -shared and -many to allow multiple connections
+# exec x11vnc to allow supervise's TERM to kill x11vnc; otherwise it gets orphaned
+exec su - cam -c "exec x11vnc -rfbauth /home/cam/.vnc/passwd -display :0.0 -shared -many >> /usr/local/careview/logs/vnc.log 2>&1"

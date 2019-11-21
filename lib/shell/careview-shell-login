@@ -1,0 +1,270 @@
+#!/bin/bash
+
+# Prints path to the link for services enabled, 
+# or if no service is specified, prints the path to the service links (/etc/service)
+# Syntax: svc_link_path [SERVICE_NAME]
+# NOTE: this function also exists in service-control-functions, it was added
+# here instead of included as it is the only function referenced from this file
+function svc_link_path () {
+    local SVC=$1
+    local SVC_PATH="$cv_svcpath"
+    [ -z "$SVC_PATH" ] && SVC_PATH="/etc/service"
+    printf -- "$SVC_PATH/$SVC";
+    return 0;
+}
+
+function cvsvc () {
+    if [ $EUID -ne 0 ]; then
+        sudocmd="sudo"
+    fi
+
+    pushd $( svc_link_path ) > /dev/null
+    for (( x=2; x<=${#@}; x++ ))
+    do
+        [ "$1" = "-u" ] && [ -h ${!x} ] && $sudocmd svc -u ${!x};    #Up
+        [ "$1" = "-d" ] && [ -h ${!x} ] && $sudocmd svc -d ${!x};    #Down
+        [ "$1" = "-h" ] && [ -h ${!x} ] && $sudocmd svc -h ${!x};    #SIGHUP
+        [ "$1" = "-k" ] && [ -h ${!x} ] && $sudocmd svc -k ${!x};    #SIGKILL
+        [ "$1" = "-t" ] && [ -h ${!x} ] && $sudocmd svc -t ${!x};    #SIGTERM
+    done
+    popd >/dev/null    
+}
+
+function cvup(){
+    cvsvc -u $@
+}
+
+function cvdown(){
+    cvsvc -d $@
+}
+
+function cvhup(){
+    cvsvc -h $@
+}
+
+function cvreup(){
+    cvdown $@
+    sleep 2
+    cvup $@
+}
+
+function cvkill(){
+    cvsvc -k $@
+}
+
+function cvterm(){
+    cvsvc -t $@
+}
+
+function cvcam(){
+    local progs
+    cam_services="copier stream_test yuv_to_jpeg"
+    case $1 in
+    "up")
+        cvup $cam_services
+        ;;
+    "down")
+        cvdown $cam_services
+        ;;
+    *)
+        cvuptime $cam_services
+        ;;
+    esac
+}
+complete -W "up down uptime" cvcam
+
+function cvps () { 
+    local OUTPUT=`ps -f -F -s $(pidof -x svscanboot) -H`;
+    local RET=$?
+    [ "x$1" = "x" ] && OUTPUT="$OUTPUT\n";
+    if [ "x$1" = "x--proc" ] || [ "x$1" = "x-p" ]; then
+        OUTPUT=`printf -- "$OUTPUT" | awk '!/(svscan|supervise|readproctitle)/'`
+        RET=$?;
+        OUTPUT="$OUTPUT\n"
+        shift;
+    fi;
+    if [ "x$1" = "x--super" ] || [ "x$1" = "x-s" ]; then
+        OUTPUT=`printf -- "$OUTPUT" | awk '/(svscan|supervise)/'`
+        RET=$?;
+        OUTPUT="$OUTPUT\n";
+        shift;
+    fi;
+    if [ "x$1" != "x" ]; then
+        printf -- "$OUTPUT" | grep "$*";
+        RET=$?;
+        return $RET;
+    fi;
+    printf -- "$OUTPUT";
+    return $RET;
+}
+
+function cvuptime(){
+    if [ $EUID -ne 0 ]; then
+        sudocmd="sudo"
+    fi
+
+    pushd /etc/service > /dev/null
+    if [ ${#@} == 0 ]
+    then
+        $sudocmd svstat * | sort | column -t
+    else
+        $sudocmd svstat $@ | sort | column -t
+    fi
+    popd > /dev/null
+}
+
+function _cvsvc () {
+    local cur
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    local tags=$(ls /etc/service)
+    COMPREPLY=($(compgen -W "${tags}" $cur))
+}
+
+function store_monitor () {
+    local _STORE_TIMER=$1
+    shift;
+    local STORES=( $* );
+    local _MSG;
+    while true; do
+        local i=0;
+        local _MSG="";
+        while [ "x${STORES[$i]}" != "x" ]; do
+            local _TMP="";
+            _TMP=`/usr/local/ezfw/bin/store_manager.php --details ${STORES[$i]} |grep 'Free Space' | awk '{print $3 " " $4}' | sed 's,%,%%,'`;
+            _MSG="$_MSG  ${STORES[$i]}: $_TMP\033[00m  "
+            let i++;
+        done;
+        printf -- "$_MSG\r";
+        sleep $_STORE_TIMER;
+    done;
+    return;
+}
+
+function room () {
+    ssh ${1/.rooms/}.rooms
+}
+
+function node () {
+    ssh ${1/.nodes/}.nodes
+}
+
+function _room_tags () {
+    local rooms
+    if [ -d /etc/cnames/rooms ]
+    then
+        rooms=$(ls /etc/cnames/rooms)
+    else
+        rooms=$(ssh server "ls /etc/cnames/rooms")
+    fi
+    for room in $rooms
+    do
+        echo "$room.rooms"
+    done
+}
+
+function _rooms () {
+    local cur
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    local tags=`_room_tags`
+    COMPREPLY=($(compgen -W "${tags}" $cur))
+}
+
+function _node_tags () {
+    local nodes
+    if [ -d /etc/cnames/nodes ]
+    then
+        nodes=$(ls /etc/cnames/nodes)
+    else
+        nodes=$(ssh server "ls /etc/cnames/nodes")
+    fi
+    for node in $nodes
+    do
+        echo "$node.nodes"
+    done
+}
+
+function _nodes () {
+    local cur
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    local tags=`_node_tags`
+    COMPREPLY=($(compgen -W "${tags}" $cur))
+}
+
+function _sshcompletion () {
+    local cur
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    local tags=`echo $(_room_tags) $(_node_tags) | sort`
+    COMPREPLY=($(compgen -W "${tags}" $cur))
+}
+
+complete -F _cvsvc cvsvc cvup cvdown cvreup cvhup cvkill cvterm cvuptime
+
+if [ -d /etc/cnames/rooms ]; then
+    alias cvrooms='ll /etc/cnames/rooms | grep "^l" | awk "{print \$8 \" (node \" substr(\$10,10) \")\"}" | sort'
+    alias cvstations='ll /etc/cnames/stations | grep "^l" | awk "{print \$8 \" (node \" substr(\$10,10) \")\"}" | sort'
+    complete -F _nodes node
+    complete -F _rooms room
+    complete -F _sshcompletion ssh
+else
+    alias cvrooms='ssh server "ls -l /etc/cnames/rooms" | grep "^l" | awk "{print \$8 \" (node \" substr(\$10,10) \")\"}" | sort'
+    alias cvstations='ssh server "ls -l /etc/cnames/stations" | grep "^l" | awk "{print \$8 \" (node \" substr(\$10,10) \")\"}" | sort'
+fi
+
+
+# Quick way to dump the room hostname for this node
+function myroom() {
+    local getmyloc="/usr/local/ezfw/sbin/show_location.php"
+    if [ -x "$getmyloc" ] ; then
+        # Look for "^    [hostname:" to get the top-level object's hostname;
+        # there may be nested objects that also have a hostname argument.
+        local hostname=$( "$getmyloc" | awk '/^    \[hostname:/ { print $NF }' )
+        if [ ".$hostname" = "." ] ; then
+            echo "This RCP node isn't a registered room." >&2
+            return 1
+        else
+            echo "$hostname.rooms"
+            return 0
+        fi
+    else
+        echo "You aren't on an RCP node." >&2
+        return 1
+    fi
+}
+
+
+# Bash completion for the cv function
+# This returns directories from the ezfw root like cd
+function _cv_comp() {
+    local IFS=$'\t\n'
+    local root='/usr/local/ezfw'
+
+    # Get current completion word
+    # If it is available, use the /etc/bash_completion function
+    local cur="${COMP_WORDS[$COMP_CWORD]}"
+    type -t _get_cword >/dev/null && cur=`_get_cword`
+
+    # Get completions as if under the root
+    COMPREPLY=( $( compgen -d -- "$root/$cur" ) )
+
+    # Strip the root from the results
+    COMPREPLY=( ${COMPREPLY[*]/#$root\//} )
+
+    # With -o filenames on complete, it will add a trailing / to any
+    # directory that exists relative to CWD. So if any completion word
+    # does not exist, manually add the trailing /.
+    local i
+    for (( i=0; i < ${#COMPREPLY[@]}; i++ )) ; do
+        [ -e "${COMPREPLY[$i]}" ] || COMPREPLY[$i]="${COMPREPLY[$i]}/"
+    done
+
+    # Success -- results returned in COMPREPLY array
+    return 0
+}
+
+# We have to use -o filenames to get the cd-like behavior of only
+# showing the basenames of the next directory's contents.
+complete -F _cv_comp -o nospace -o filenames cv

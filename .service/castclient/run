@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo "Starting Cast Client" >> /usr/local/careview/logs/init/castclient.log 2>&1
+exec su - -c "/usr/local/careview/cvg/CVG/castclient.pl" cam >> /usr/local/careview/logs/init/castclient.log 2>&1

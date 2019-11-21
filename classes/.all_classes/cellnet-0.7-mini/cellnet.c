@@ -1,0 +1,225 @@
+#include <stdint.h>
+#include <stdlib.h>
+
+#include "celldef.h"
+#include "cell_init.h"
+#include "feedscan.h"
+#include "main.h"
+#include "posix_shmseg.h"
+#include "bmp.h"
+#include "zone.h"
+
+#include "debug.h"
+
+
+uint32_t pixels;
+uint32_t src_size;
+uint32_t width;
+uint32_t height;
+
+frame_data_t *frame;
+frame_data_t *frame_src;
+uint32_t current_buffer = 1;
+uint8_t *buffer;
+
+extern cell_t *cells;
+
+uint32_t map;
+uint32_t frame_number;
+uint32_t frame_delay;
+int32_t frame_rate;
+
+const char *log_filename;
+const char *input_filename = "/dev/video32";
+uint32_t proj_id;
+
+extern zonedef_t *all_zones[MAX_ZONES];
+extern uint8_t nzones;
+extern int ZONE_ACTIVE_FLOOR;
+
+int32_t generate_bmps;
+
+int cols = 80;
+
+shmseg_t mem_seg;
+shmseg_t bmp_seg;
+
+extern uint32_t ysum;
+extern uint32_t yhigh;
+extern uint32_t ylow;
+extern uint32_t yavg;
+extern uint32_t yrange;
+uint32_t pixels;
+uint32_t width;
+uint32_t height;
+
+/*****************************************************************/
+
+int cellnet_init () {
+    /* parse arguments */
+    if (frame_rate < 1 || frame_rate > 30) {
+        _show_warning("Params", "Unreasonable frame rate requested (%d), using default rate %d", frame_rate, DEF_RATE);
+        frame_rate = DEF_RATE;
+    }
+
+    /* calculate frame delay from frame rate */
+    frame_delay = 1000000 / frame_rate;
+
+    if (init_signaler()) return -1;
+
+    /* initialize shmseg_t (the shared memory info structure) */
+    mem_seg = (shmseg_t){
+        .filename = input_filename,
+        .fd = -1,
+        .flags = 0,
+        .size = sizeof(frame_data_t),
+        .mode = 0644,
+        .create = 0,
+        .write = 0,
+        .addr = NULL
+    };
+
+    if (generate_bmps) {
+        bmp_seg = (shmseg_t){
+            .filename = "/tmp/deltas.bmp",
+            .fd = -1,
+            .flags = 0,
+            .size = 0,
+            .mode = 0666,
+            .create = 1,
+            .write = 1,
+            .addr = NULL
+        };
+    }
+
+    /* attach shared memory segment */
+    if (attach_shm(&mem_seg)) {
+        _show_error("Init", "Unable to connect to shm!", 0);
+        return -1;
+    }
+
+    /* cast shared mem seg to frame src pointer */
+    frame_src = (frame_data_t*)mem_seg.addr;
+
+    /* check frame source version */
+    if (frame_src->version != FRAME_DATA_VERSION) {
+        _show_error("Version", "frame_data_t structure version mismatch!  (source version: %u, our version: %u)\n", frame_src->version, FRAME_DATA_VERSION);
+        return -1;
+    }
+
+    width = frame_src->width;
+    height= frame_src->height;
+
+    /* set some legacy variables (will be removed eventualy, use frame buffer structures) */
+    pixels = frame_src->width * frame_src->height;
+    src_size = sizeof(frame_data_t) + pixels * 3;
+
+    frame = calloc(1, src_size);
+    /* zero current buffer's timestamp */
+    frame->ts.usec = frame->ts.sec = 0;
+    buffer = frame->frame;
+
+    if (generate_bmps) {
+        /* attach shared memory segment */
+        bmp_seg.size = ((((frame_src->width % 4) + frame_src->width ) * frame_src->height) * 3) + 14 + 40;
+        if (attach_shm(&bmp_seg)) {
+            _show_error("Init", "Unable to connect to shm!", 0);
+            return 2;
+        }
+        init_bmp(frame_src->width, frame_src->height, bmp_seg.addr);
+    }
+
+    /* initialize cellnet */
+    init_net(&cells, frame_src->width, frame_src->height, buffer);
+
+//    int pixels = frame_src->width * frame_src->height;
+
+
+    /* initialize the signaler */
+    if (init_signaler()) return 3;
+
+    return 0;
+}
+
+/*****************************************************************/
+
+
+
+/*****************************************************************/
+
+int cellnet_main () {
+    int shm_check = 10;
+
+    read_all_zones(frame_src->width, frame_src->height);
+
+    const char *coltmp = getenv("COLUMNS");
+    if (coltmp != NULL) {
+        cols = atoi(coltmp);
+        if (cols < 120) cols = 120;
+    }
+
+    int i;
+    printf("%d Zones:\n", nzones);
+    printf("-------------------------------------------------\n");
+    for (i = 0; i < nzones; i++) {
+        printf("%u:  Zone '%s':\n\ttrigger: %0.3f\n\t pixels: %d\n", i, all_zones[i]->name, all_zones[i]->trigger, all_zones[i]->count.pixels);
+    }
+    printf("-------------------------------------------------\n");
+    /************************************
+     * main engine loop 
+     */
+    
+    do {
+//        if (frame_number == 10) return 0;
+        /* check if shm segment is still valid (see bug #386) */
+        if (!--shm_check) {
+            if (validate_shm_segment(&mem_seg)) {
+                _show_error("SHM", "Failed validating shared memory segment!", 0);
+                return -1;
+            }
+            frame_src = (frame_data_t*)mem_seg.addr;
+            shm_check = 10;
+        }
+
+        /* check if new frame is available */
+        if ((frame_src->ts.usec == frame->ts.usec) && (frame_src->ts.sec == frame->ts.sec)) {
+            /* no new frame, sleep for 25% the standard delay for frame rate */
+            usleep(frame_delay>>2);
+            continue;
+        }
+
+        /* copy frame data from shared memory segment to local segment */
+        memcpy((void*)(frame), (void*)frame_src, src_size);
+
+        frame_number++;
+
+        /* run detection engine */
+        _debug_flow("tripping frame %d", frame_number);
+
+        struct timeval start, end;
+
+        gettimeofday(&start, NULL);
+        feedscan_trip(frame_number);
+
+        if (generate_bmps)
+            make_bmp(frame_src->width, frame_src->height, cells, bmp_seg.addr);
+
+        gettimeofday(&end, NULL);
+  
+        if (end.tv_usec < start.tv_usec) {
+          end.tv_usec += 1000000;
+          start.tv_sec--;
+        }
+        if (end.tv_sec != start.tv_sec) continue;
+        end.tv_usec -= start.tv_usec;
+        int del = frame_delay - end.tv_usec;
+        if (del < 1000) continue;
+
+        /* sleep time for frame rate (inaccurate, but good enough for our purpose) */
+        usleep(frame_delay - end.tv_usec);
+
+    } while (1);
+
+    return 0;
+}
+

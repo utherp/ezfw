@@ -1,0 +1,16 @@
+@import url(img/box/zone.css);
+@import url(img/top/left/zone.css);
+@import url(img/top/right/zone.css);
+@import url(img/bottom/left/zone.css);
+@import url(img/bottom/right/zone.css);
+
+body {
+	background-color: black;
+}
+
+.zonehl {
+	position: absolute;
+	filter:			alpha(opacity=50);
+	-moz-opacity:	.50;
+	opacity:		.50;
+};

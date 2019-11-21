@@ -1,0 +1,47 @@
+#include <stdint.h>
+#include <unistd.h>
+#include <stdio.h>
+
+enum opttype_e {
+    NONE= 0,
+    INT,
+    FLOAT,
+    STRING
+};
+
+#define ARG_NAME_PREFIX "CV_CELLNET_"
+
+#define ARG_REQ       0x01      /* argument is required */
+#define ARG_SIGNED    0x02      /* number may be signed */
+#define ARG_PARAM     0x04      /* may have param */
+#define ARG_PARAM_REQ 0x08      /* param required */
+#define ARG_ICASE     0x10      /* name is case insensitive (when loading from environment) */
+#define ARG_NOENV     0x20      /* do not use a value from the environment */
+
+#define ARG_FROMENV   0x2000    /* indicates that the argument was loaded from the environment */
+#define ARG_SET       0x4000    /* indicates that the argument was specified and set */
+
+typedef struct {
+    const char *name;    /* name of the argument (environment is checked for ARG_NAME_PREFIX . name) */
+    const char *desc;    /* description of the argument */
+    const char *longopt; /* long option name (e.g.: --arg, where opt might be 'a') */
+    char opt;            /* the argument charicter (e.g.: in '-n', the optchar is 'n') */
+    enum opttype_e type; /* the argument type (integer, unsigned integer, float, unsigned float, or string, NOTE: 'float' means double, use symbols above */
+    uint32_t flags;      /* flags:
+                              ARG_SIGNED:    the numeric parameter to the argument may be signed
+                              ARG_REQ:       the argument is required
+                              ARG_PARAM:     the argument may take a parameter
+                              ARG_PARAM_REQ: the argument requires a parameter (implies ARG_PARAM)
+                         */
+    int found;           /* whether the argument was found (initialize to 0) */
+    union {              /* a union of the different types the argument may represent */
+        int32_t INT;
+        double FLOAT;
+        const char *STRING;
+    } value;
+} argspec_t;
+
+int parse_params (int argc, char *argv[], int nargs, argspec_t *args);      /* args is a pointer to an argspec_t list of nargs elements */
+
+void show_params_usage (int nargs, argspec_t *args, const char *msg_format, ...);
+

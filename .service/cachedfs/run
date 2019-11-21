@@ -1,0 +1,212 @@
+#!/bin/bash
+
+LOG=/usr/local/careview/logs/init/cachedfs.log
+
+exec >>$LOG
+exec 2>&1
+
+function wait_and_die () {
+    echo "   .... well, I'm all out of ideas.  I'll just lie here a few minutes before i die  :o"
+    sleep 120;
+    exit 1;
+} >&2
+
+function is_mounted () {
+    #Is the cache directory listed in mtab?
+    grep -qe "$1" /etc/mtab && return 0 || return 1
+} >&2
+
+function is_connected () {
+    local dir=$1
+    if [ -h "$dir" ]; then
+        # clearly not connected.... the mount point is a symlink
+        return 1;
+    fi
+
+    # if we're not mounted, then we're not connected...
+    is_mounted "$dir" || return 1;
+
+    # if the mountpoint is invalid, then we're not connected
+    is_mountpoint_valid "$dir" || return 1;
+
+    # connected
+    return 0;
+} >&2
+
+function is_mountpoint_valid () {
+    local dir=$1
+
+    # valid means $dir is...
+        # ...an executable...
+    [ -d "$dir" ] || return 1;
+        # ...directory and...
+    [ -x "$dir" ] || return 2;
+        # ...is NOT a symlink
+    [ -h "$dir" ] && return 3;
+
+    # valid 
+    return 0;
+} >&2
+
+function fix_mount_point () {
+    local dir=$1
+    shift;
+    local no_unmount=0
+    [ "$#" -gt 0 ] && no_unmount=$1
+
+
+    # remove if symlink
+    [ -h "$dir" ] && rm "$dir"
+
+
+    # unless its a directory and executable
+    if ! [ -d "$dir" -a -x "$dir" ]; then
+
+        # does it exist at all?
+        if [ -e "$dir" ]; then
+          # it exists... its just not a directory.... lets move it
+          local backup_name="`dirname "$dir"`/_`basename "$dir"`.backup"
+          if mv "$dir" "$backup_name"; then
+              echo "NOTE: Moved non-directory entity at '$dir' to '$backup_name'";
+          else
+              # couldn't move it, unlink it?
+              rm -f "$dir"
+          fi
+        fi
+    
+    
+        # try making it
+        if ! mkdir "$dir"; then
+            echo "Warning: failed to mkdir '$dir'"
+            echo "  ...hrmm, must be a dead end-point with stale open handle(s)";
+                
+            if [ "$no_unmount" = "1" ]; then
+                # was told not to try unmount_dir (probably cause we just did)
+                echo "ERROR: Failed to fix mount point '$dir'";
+                wait_and_die;
+            fi
+    
+            # attempt to unmount dir (this involves attempting to kill pids with stale file descriptors)
+            unmount_dir "$dir";
+            # call restart fix_mount_point (with no_unmount parameter)
+            fix_mount_point "$dir" 1
+            # recurse return
+            return $?
+        fi
+
+    fi
+
+    # fix permissions of mount point
+    chown cam:cam -R "$dir"
+    chmod 755 "$dir"
+    chmod u+w -R "$dir"
+
+    return 0;
+
+} >&2
+
+function unmount_dir () {
+    local dir=$1
+    echo "  Attempting to terminate any processes with stale handles.";
+
+    _proc=( `lsof 2>/dev/null | grep -e "$dir" | awk '{print $1 "/" $2}'` )
+
+    if [ "${#_proc[*]}" = 0 ]; then
+        echo "  ...No processes found which hold stale handles :/";
+
+        if ! umount -f "$dir"; then
+            echo "   --> FAILED";
+            wait_and_die;
+        fi
+    fi
+
+    _allpids=''
+    _i=0;
+    while [ "$_i" -lt "${#_proc[*]}" ]; do
+        _pid=( `sed 's,/, ,' <<<"${_proc[$_i]}"` )
+        echo "    found instance of '${_pid[0]}' (pid: ${_pid[1]}) with a stale handle..."
+        _allpids="$_allpids ${_pid[1]}"
+        let _i++;
+    done;
+
+    echo "   attempting:> kill $_allpids; umount -f '$dir' ..."
+    kill $_allpids;
+    if ! umount -f "$dir"; then
+        echo "    --> FAILED";
+        echo "   attempting:>  kill -9 $_allpids; umount-f '$dir' ..."
+        kill -9 $_allpids;
+        if ! umount -f "$dir"; then
+            echo "   --> FAILED";
+            wait_and_die;
+        fi
+    fi
+
+    echo "   --> Yay!  successfully unmounted '$dir'";
+
+    return 0;
+
+} >&2
+
+
+##########################################################
+
+echo "`date`: Starting cachedfs v2.4"
+
+#Start fuse
+modprobe fuse
+
+source /etc/hospital.conf
+
+SRC=/net/server/var/archives/movies
+CACHE=/usr/local/careview/video/archive/movie_cache
+
+CMD="/usr/local/careview/bin/cachedfs -source=$SRC -cache=$CACHE"
+
+#Read the lowwm and highwm from hospital.conf if it's set, otherwise go with the compiled defaults
+#NOTE: these values can also be loaded from files called '.cachedfs_[high|low]_watermark
+
+if [ "$cv_cachedfs_lowwm_mb" != "" ] ; then
+    CMD="$CMD -lowwm=$cv_cachedfs_lowwm_mb"
+fi
+if [ "$cv_cachedfs_highwm_mb" != "" ] ; then
+    CMD="$CMD -highwm=$cv_cachedfs_highwm_mb"
+fi
+
+
+if is_mounted "$CACHE"; then
+    if is_connected "$CACHE"; then
+        # cache dir is mounted and its vfs instance (driver / controller / module) is active
+        # this shouldn't have happened... that means the cachedfs pid must have reparented
+        # from supervise...  well, if its running, then we'll just sleep for a while, then die
+        wait_and_die;
+    fi
+
+    # mounted but not connected... fix_mount_point should take care of this case.
+fi
+
+# this call will not return if it fails, as it would be a critical failure
+fix_mount_point "$CACHE";
+
+# some older blockcache files cause a problem
+# lets remove them if they exist...
+
+# this calculates the oldest file to keep in minutes from newyears, 2011
+_mmin=$(( ( $( date '+%s' ) - $( date -d '2011-01-01 00:00:00' '+%s' ) ) / 60 ))
+# this finds and deletes mpg and mpg blockcache files older than $_mmin minutes
+find "$CACHE" -type f -name "*.mpg*" -mmin +$_mmin -delete
+
+# Now we validate that the source path is mounted...
+_c=3;
+while ! [ -d "$SRC" ]; do
+    let _c++;
+    if [ "$_c" = "4" ]; then
+        echo "`date`: waiting for source mount..."
+        let _c=0;
+    fi
+    sleep 15;
+
+done;
+
+# transfer execution to cachedfs
+exec su - -c "$CMD -f" cam
+

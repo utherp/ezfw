@@ -1,0 +1,21 @@
+.box.gray {
+	background-image: url('gray.gif');
+}
+.box.blue {
+	background-image: url('blue.gif');
+}
+.box.cyan {
+	background-image: url('cyan.gif');
+}
+.box.green {
+	background-image: url('green.gif');
+}
+.box.magenta {
+	background-image: url('magenta.gif');
+}
+.box.red {
+	background-image: url('red.gif');
+}
+.box.yellow {
+	background-image: url('yellow.gif');
+}

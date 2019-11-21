@@ -1,0 +1,17 @@
+#!/bin/bash
+
+logfile=/usr/local/careview/logs/init/apache_monitor.log
+
+function logger () {
+    echo "`date`: $@" >> $logfile
+}
+
+logger "Starting apache service monitor"
+
+while true; do
+    if ! apache2ctl start | grep 'already running'; then
+        logger "Apache was not running!  Restarted..."
+    fi
+    sleep 60;
+done;
+
