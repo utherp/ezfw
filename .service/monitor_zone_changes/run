@@ -1,4 +1,0 @@
-#!/bin/sh
-echo "Starting monitor_zone_changes"
-date >> /usr/local/careview/logs/zone_changes.log 2>&1
-exec /usr/local/careview/sbin/monitor_zone_changes.sh >> /usr/local/careview/logs/zone_changes.log 2>&1

@@ -1,4 +1,0 @@
-#!/bin/sh
-echo "Starting History Store"
-date >> /usr/local/careview/logs/stores/init/history.log 2>&1
-exec /usr/local/careview/bin/store_manager.php --force --logfile stores/history.log --quiet --manage history >> /usr/local/careview/logs/stores/init/history.log 2>&1

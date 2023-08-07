@@ -1,4 +1,0 @@
-#!/bin/sh
-echo "Starting Virtual Bed Rails"
-date >> /usr/local/careview/logs/init/virtual_bed_rails.log 2>&1
-exec /usr/local/careview/bin/virtual_bed_rails.php >> /usr/local/careview/logs/init/virtual_bed_rails.log 2>&1

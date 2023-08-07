@@ -1,4 +1,0 @@
-#!/bin/sh
-echo "Starting stream_test"
-date >> /usr/local/careview/logs/init/stream_test.log 2>&1
-exec /usr/local/careview/bin/stream_test.php >> /usr/local/careview/logs/init/stream_test.log 2>&1

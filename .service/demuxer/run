@@ -1,4 +1,0 @@
-#!/bin/sh
-echo "Starting demuxer"
-date >> /usr/local/careview/logs/init/demuxer.log 2>&1
-exec /usr/local/careview/bin/demuxer.php >> /usr/local/careview/logs/init/demuxer.log 2>&1
